@@ -1,37 +1,28 @@
 // Prisma schema —— 公司内部沟通工具
 // 阶段 1：用户 + 预注册名单两张核心表；好友/消息/抽奖等随后续阶段追加
+//
+// 开发期使用 SQLite（零安装）；部署到服务器时把 provider 改回 postgresql、
+// DATABASE_URL 改成 PG 连接串即可，表结构无需改动。
+// 说明：SQLite 连接器不支持 enum，角色/状态用字符串 + 常量注释代替。
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
 // 角色：DEV=开发者（唯一） ADMIN=管理员 MEMBER=成员
-enum Role {
-  DEV
-  ADMIN
-  MEMBER
-}
-
-// 预注册名单状态：PENDING 待审批 APPROVED 已通过 REJECTED 已拒绝
-enum RegistrationStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
-// 员工账号（激活后创建）
+// 对应常量：src/constants.ts
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
   phone        String
   name         String
   department   String
-  role         Role     @default(MEMBER)
+  role         String   @default("MEMBER") // DEV | ADMIN | MEMBER
   passwordHash String
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
@@ -41,21 +32,22 @@ model User {
 }
 
 // 预注册名单：开发者直接录入，或管理员提交后由开发者审批
+// 状态：PENDING=待审批 APPROVED=已通过 REJECTED=已拒绝
 model PendingRegistration {
-  id           String             @id @default(cuid())
+  id           String   @id @default(cuid())
   email        String
   phone        String
   name         String
   department   String
-  status       RegistrationStatus @default(PENDING)
+  status       String   @default("PENDING") // PENDING | APPROVED | REJECTED
   rejectReason String?
   // 名单来源：DEV=开发者直接录入 ADMIN=管理员提交待审批
-  source       String             @default("DEV") // DEV | ADMIN
+  source       String   @default("DEV") // DEV | ADMIN
   createdById  String
-  createdBy    User               @relation("Reviewer", fields: [createdById], references: [id])
+  createdBy    User     @relation("Reviewer", fields: [createdById], references: [id])
   reviewedById String?
   reviewedAt   DateTime?
-  createdAt    DateTime           @default(now())
+  createdAt    DateTime @default(now())
 
   @@unique([email, department])
   @@index([status])

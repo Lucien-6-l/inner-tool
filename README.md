@@ -22,23 +22,20 @@ inner-tool/
 ## 环境要求
 
 - Node.js ≥ 20（已确认 v22）
-- git（未安装，需安装：`winget install Git.Git`）
-- Docker Desktop（推荐，一键起数据库）或本机 PostgreSQL 17 + Redis 7
+- git（已安装 v2.55）
+- 数据库：开发期用 SQLite（零安装，`prisma/dev.db` 一个文件）；部署服务器时切换 PostgreSQL + Redis（见 `docker-compose.yml` 参考）
 
 ## 本地启动
 
 ```bash
-# 1. 起数据库（首次）
-docker compose up -d
-
-# 2. 后端
+# 1. 后端
 cd backend
-cp .env.example .env   # 填入 QQ 邮箱 SMTP 授权码等
+cp .env.example .env   # 填 QQ 邮箱 SMTP 授权码（未填则激活链接打印到控制台）
 npm install
 npx prisma migrate dev --name init
 npm run dev
 
-# 3. 前端（另开终端）
+# 2. 前端（另开终端）
 cd frontend
 npm install
 npm run dev

@@ -3,6 +3,8 @@ import cors from 'cors';
 import http from 'node:http';
 import { Server } from 'socket.io';
 import { config } from './config.js';
+import authRoutes from './routes/auth.js';
+import adminRoutes from './routes/admin.js';
 
 const app = express();
 app.use(cors({ origin: config.clientOrigin, credentials: true }));
@@ -12,6 +14,10 @@ app.use(express.json());
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, service: 'inner-tool-backend', time: new Date().toISOString() });
 });
+
+// 业务路由
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 
 const server = http.createServer(app);
 

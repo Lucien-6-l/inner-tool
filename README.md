@@ -46,7 +46,8 @@ npm run dev
 
 访问 http://localhost:5173
 
-默认开发者账号：`dev@inner-tool.local` / `Dev123456!`（登录后请尽快在「我的」里改密码）
+初始开发者账号：`dev@inner-tool.local` / `Dev123456!`（首次初始化用，登录后尽快改）
+把开发者账号换成自己的邮箱（推荐）：`cd backend && npx tsx scripts/change-dev-account.ts 你的邮箱 新密码`（数据全部保留）
 
 ## 生产模式（正式用，单端口）
 

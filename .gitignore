@@ -18,3 +18,8 @@ frontend/.env
 *.log
 .DS_Store
 Thumbs.db
+
+# 上传文件
+uploads/
+backend/uploads/
+

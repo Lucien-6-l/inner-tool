@@ -24,7 +24,7 @@ async function submit() {
       body: JSON.stringify({ email: email.value, password: password.value }),
     });
     saveSession(data.token, data.user);
-    const redirect = (route.query.redirect as string) || (data.user.role === 'MEMBER' ? '/profile' : '/admin/registrations');
+    const redirect = (route.query.redirect as string) || '/chat';
     router.replace(redirect);
   } catch (e) {
     error.value = e instanceof Error ? e.message : '登录失败';

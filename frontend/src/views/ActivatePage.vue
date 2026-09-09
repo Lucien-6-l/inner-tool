@@ -57,7 +57,7 @@ async function submit() {
       <template v-else>
         <h1>激活成功 🎉</h1>
         <p class="sub">账号已开通，正在进入系统…</p>
-        <button @click="router.replace('/admin/registrations')">进入系统</button>
+        <button @click="router.replace('/chat')">进入系统</button>
       </template>
     </div>
   </main>

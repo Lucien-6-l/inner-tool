@@ -1,11 +1,15 @@
 import express from 'express';
 import cors from 'cors';
 import http from 'node:http';
-import { Server } from 'socket.io';
+import path from 'node:path';
 import { config } from './config.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import friendsRoutes from './routes/friends.js';
+import conversationsRoutes from './routes/conversations.js';
+import messagesRoutes from './routes/messages.js';
+import uploadRoutes from './routes/upload.js';
+import { initSocket } from './socket.js';
 
 const app = express();
 app.use(cors({ origin: config.clientOrigin, credentials: true }));
@@ -16,24 +20,21 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true, service: 'inner-tool-backend', time: new Date().toISOString() });
 });
 
+// 上传文件静态访问
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
 // 业务路由
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/friends', friendsRoutes);
+app.use('/api/conversations', conversationsRoutes);
+app.use('/api/messages', messagesRoutes);
+app.use('/api/upload', uploadRoutes);
 
 const server = http.createServer(app);
 
-// Socket.IO —— 阶段 5 消息实时通道，先挂载占位
-const io = new Server(server, {
-  cors: { origin: config.clientOrigin, credentials: true },
-});
-
-io.on('connection', (socket) => {
-  console.log(`[socket] connected: ${socket.id}`);
-  socket.on('disconnect', () => {
-    console.log(`[socket] disconnected: ${socket.id}`);
-  });
-});
+// Socket.IO —— 实时消息通道（鉴权 + 会话房间）
+initSocket(server);
 
 server.listen(config.port, () => {
   console.log(`[inner-tool] backend listening on http://localhost:${config.port}`);

@@ -1,9 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import { getToken, currentUser } from './api';
+import { getToken } from './api';
 
 function defaultHome(): string {
-  const role = currentUser.value?.role;
-  return role === 'DEV' || role === 'ADMIN' ? '/admin/registrations' : '/profile';
+  return '/chat';
 }
 
 const router = createRouter({
@@ -14,6 +13,7 @@ const router = createRouter({
     { path: '/activate', component: () => import('./views/ActivatePage.vue'), meta: { public: true } },
     { path: '/profile', component: () => import('./views/ProfilePage.vue') },
     { path: '/friends', component: () => import('./views/FriendsPage.vue') },
+    { path: '/chat', component: () => import('./views/ChatPage.vue') },
     { path: '/admin/registrations', component: () => import('./views/AdminRegistrations.vue') },
     { path: '/admin/users', component: () => import('./views/UsersPage.vue') },
     { path: '/:pathMatch(.*)*', redirect: '/login' },

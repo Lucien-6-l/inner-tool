@@ -50,9 +50,11 @@ export class ApiError extends Error {
 }
 
 // 轻量 fetch 封装；401 时清除会话并跳登录
-export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+// options.form=true 时按 FormData 发送（文件上传），不设 Content-Type
+export async function request<T>(path: string, options: RequestInit & { form?: boolean } = {}): Promise<T> {
+  const isForm = options.form === true;
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(isForm ? {} : { 'Content-Type': 'application/json' }),
     ...(options.headers as Record<string, string>),
   };
   const token = getToken();

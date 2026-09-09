@@ -1,7 +1,8 @@
 import { prisma } from '../prisma.js';
+import { ensureDepartmentGroup } from './chat.js';
 
 /**
- * 为指定用户建立"同部门好友"关系（双向、幂等）。
+ * 为指定用户建立"同部门好友"关系（双向、幂等），并确保部门群存在。
  * 规则：激活成功后调用；同部门所有已激活用户互为好友。
  */
 export async function buildFriendshipsForUser(userId: string): Promise<number> {
@@ -29,6 +30,9 @@ export async function buildFriendshipsForUser(userId: string): Promise<number> {
   if (missing.length > 0) {
     await prisma.contact.createMany({ data: missing });
   }
+  await ensureDepartmentGroup(me.id).catch((err) => {
+    console.error('[friendship] 部门群创建失败（不阻断）:', err);
+  });
   return missing.length;
 }
 

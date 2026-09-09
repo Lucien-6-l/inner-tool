@@ -6,9 +6,10 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      // 开发期把 /api 与 /socket.io 代理到后端
+      // 开发期把 /api、/socket.io 与上传文件代理到后端
       '/api': 'http://localhost:3000',
       '/socket.io': { target: 'http://localhost:3000', ws: true },
+      '/uploads': 'http://localhost:3000',
     },
   },
 });

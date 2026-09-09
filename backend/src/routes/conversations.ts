@@ -30,7 +30,7 @@ router.get('/', async (req: AuthedRequest, res) => {
       conversation: {
         include: {
           members: {
-            include: { user: { select: { id: true, name: true, email: true, department: true } } },
+            include: { user: { select: { id: true, name: true, email: true, department: true, avatarUrl: true } } },
           },
           messages: { orderBy: { id: 'desc' }, take: 1, include: { sender: { select: { name: true } } } },
         },
@@ -56,7 +56,7 @@ router.get('/', async (req: AuthedRequest, res) => {
             type: last.type,
             content: last.content,
             fileName: last.fileName,
-            senderName: last.sender.name,
+            senderName: last.sender?.name ?? '已注销',
             createdAt: last.createdAt,
           }
         : null,
@@ -89,7 +89,7 @@ router.get('/:id/messages', async (req: AuthedRequest, res) => {
     where: { conversationId: convId, ...(before ? { id: { lt: before } } : {}) },
     orderBy: { id: 'desc' },
     take: limit,
-    include: { sender: { select: { id: true, name: true } } },
+    include: { sender: { select: { id: true, name: true, avatarUrl: true } } },
   });
   messages.reverse();
   res.json({ ok: true, data: { list: messages, hasMore: messages.length === limit } });

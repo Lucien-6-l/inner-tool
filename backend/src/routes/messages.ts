@@ -39,7 +39,7 @@ router.post('/', async (req: AuthedRequest, res) => {
       fileName: typeof fileName === 'string' ? fileName.slice(0, 255) : null,
       fileSize: typeof fileSize === 'number' && fileSize >= 0 ? fileSize : null,
     },
-    include: { sender: { select: { id: true, name: true } } },
+    include: { sender: { select: { id: true, name: true, avatarUrl: true } } },
   });
 
   getIo()?.to(conversationId).emit('message:new', { message });

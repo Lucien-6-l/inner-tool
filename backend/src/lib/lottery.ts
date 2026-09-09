@@ -60,7 +60,7 @@ export async function drawLottery(lotteryId: string): Promise<{ ok: boolean; err
   const resultMessage = await prisma.message.findFirst({
     where: { conversationId: lottery.conversationId, type: 'lottery_result' },
     orderBy: { createdAt: 'desc' },
-    include: { sender: { select: { id: true, name: true } } },
+    include: { sender: { select: { id: true, name: true, avatarUrl: true } } },
   });
   getIo()?.to(lottery.conversationId).emit('message:new', { message: resultMessage });
   getIo()?.to(lottery.conversationId).emit('lottery:updated', { lotteryId: lottery.id });

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import { request, currentUser } from '../api';
+import { request, currentUser, colorForName } from '../api';
 
 interface Friend {
   id: string;
@@ -9,6 +9,8 @@ interface Friend {
   phone: string;
   department: string;
   role: 'DEV' | 'ADMIN' | 'MEMBER';
+  avatarUrl?: string | null;
+  bio?: string | null;
 }
 
 interface Candidate {
@@ -17,6 +19,7 @@ interface Candidate {
   name: string;
   department: string;
   role: string;
+  avatarUrl?: string | null;
 }
 
 const list = ref<Friend[]>([]);
@@ -107,22 +110,25 @@ onMounted(load);
 
     <div class="toolbar">
       <input v-model="keyword" class="search" placeholder="搜索已有好友…" />
-      <button class="primary" @click="addMode = !addMode">{{ addMode ? '关闭' : '＋ 添加同事' }}</button>
+      <button class="btn btn-primary" @click="addMode = !addMode">{{ addMode ? '关闭' : '＋ 添加同事' }}</button>
     </div>
 
     <div v-if="addMode" class="add-panel">
       <div class="add-row">
         <input v-model="addKeyword" class="search" placeholder="输入姓名或邮箱搜索，添加为非好友同事" @keydown.enter.prevent="searchCandidates" />
-        <button class="ghost" :disabled="searching" @click="searchCandidates">{{ searching ? '搜索中…' : '搜索' }}</button>
+        <button class="btn btn-ghost" :disabled="searching" @click="searchCandidates">{{ searching ? '搜索中…' : '搜索' }}</button>
       </div>
       <p v-if="addMsg" class="ok-msg">{{ addMsg }}</p>
       <div v-for="c in candidates" :key="c.id" class="candidate">
-        <span class="avatar">{{ initials(c.name) }}</span>
+        <span class="avatar-c" :style="{ background: colorForName(c.name) }">
+          <img v-if="c.avatarUrl" :src="c.avatarUrl" alt="" />
+          <template v-else>{{ c.name.trim().slice(0, 1) }}</template>
+        </span>
         <div class="meta">
           <div class="name-line"><span class="name">{{ c.name }}</span></div>
           <div class="sub">{{ c.email }} · {{ c.department }}</div>
         </div>
-        <button class="primary small" :disabled="addingId === c.id" @click="addFriend(c)">{{ addingId === c.id ? '添加中…' : '添加' }}</button>
+        <button class="btn btn-primary sm" :disabled="addingId === c.id" @click="addFriend(c)">{{ addingId === c.id ? '添加中…' : '添加' }}</button>
       </div>
     </div>
 
@@ -133,13 +139,16 @@ onMounted(load);
     <section v-for="[dept, members] in grouped" :key="dept" class="group">
       <h3>{{ dept }} <span class="count">{{ members.length }}</span></h3>
       <div class="member" v-for="m in members" :key="m.id">
-        <span class="avatar">{{ initials(m.name) }}</span>
+        <span class="avatar-c" :style="{ background: colorForName(m.name) }">
+          <img v-if="m.avatarUrl" :src="m.avatarUrl" alt="" />
+          <template v-else>{{ m.name.trim().slice(0, 1) }}</template>
+        </span>
         <div class="meta">
           <div class="name-line">
             <span class="name">{{ m.name }}</span>
             <span v-if="m.role !== 'MEMBER'" class="tag">{{ m.role === 'DEV' ? '开发者' : '管理员' }}</span>
           </div>
-          <div class="sub">{{ m.email }}</div>
+          <div class="sub">{{ m.email }}<span v-if="m.bio" class="bio"> · {{ m.bio }}</span></div>
         </div>
       </div>
     </section>
@@ -147,81 +156,59 @@ onMounted(load);
 </template>
 
 <style scoped>
-.page { max-width: 720px; margin: 0 auto; padding: 32px 24px; }
-h2 { font-size: 22px; }
-.hint { color: #536174; font-size: 13px; margin: 6px 0 16px; }
+.page { max-width: 760px; margin: 0 auto; padding: 32px 24px; }
+h2 { font-size: 22px; color: var(--text); }
+.hint { color: var(--muted); font-size: 13px; margin: 6px 0 16px; }
 .search {
   flex: 1;
-  height: 38px;
-  border: 1px solid #d3dae6;
-  border-radius: 8px;
+  height: 40px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
   padding: 0 12px;
   font-size: 14px;
   outline: none;
+  transition: border-color 0.2s;
 }
-.search:focus { border-color: #2563eb; }
+.search:focus { border-color: var(--primary); }
 .toolbar { display: flex; gap: 10px; margin-bottom: 20px; }
-.primary { background: #2563eb; color: #fff; border: none; border-radius: 8px; padding: 0 16px; height: 38px; cursor: pointer; font-size: 13px; white-space: nowrap; }
-.primary.small { height: 30px; padding: 0 14px; }
-.primary:disabled, .ghost:disabled { opacity: 0.6; }
-.ghost { background: #fff; color: #536174; border: 1px solid #d3dae6; border-radius: 8px; padding: 0 16px; height: 38px; cursor: pointer; font-size: 13px; }
-.add-panel { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 20px; box-shadow: 0 4px 16px rgba(13,19,38,0.06); }
+.btn { height: 40px; padding: 0 18px; border-radius: 10px; }
+.btn.sm { height: 30px; padding: 0 14px; font-size: 13px; }
+.add-panel { background: var(--card); border-radius: 16px; padding: 18px; margin-bottom: 20px; box-shadow: var(--shadow); border: 1px solid var(--border); }
 .add-row { display: flex; gap: 10px; }
-.ok-msg { color: #0f6b3a; font-size: 13px; margin: 10px 0 0; }
+.ok-msg { color: #0f9d6e; font-size: 13px; margin: 10px 0 0; }
 .candidate {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 10px 0;
-  border-bottom: 1px solid #eef1f6;
+  border-bottom: 1px solid var(--border);
 }
 .candidate:last-child { border-bottom: none; }
-.avatar {
+.avatar-c {
   width: 40px;
   height: 40px;
-  border-radius: 50%;
-  background: #0d1326;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   font-size: 16px;
-  flex-shrink: 0;
 }
 .meta { flex: 1; min-width: 0; }
 .name-line { display: flex; align-items: center; gap: 8px; }
 .name { font-size: 15px; font-weight: 600; }
-.sub { color: #8a93a6; font-size: 12px; margin-top: 2px; }
+.sub { color: var(--muted); font-size: 12px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bio { color: var(--primary-2); }
 .group { margin-bottom: 22px; }
-.group h3 { font-size: 14px; color: #536174; margin-bottom: 10px; }
-.count { color: #8a93a6; font-weight: 400; }
+.group h3 { font-size: 14px; color: var(--primary-dark); margin-bottom: 10px; }
+.count { color: var(--muted); font-weight: 400; }
 .member {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
-  background: #fff;
-  border-radius: 10px;
+  padding: 10px 14px;
+  background: var(--card);
+  border-radius: 14px;
   margin-bottom: 8px;
-  box-shadow: 0 2px 8px rgba(13,19,38,0.05);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
 }
-.avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: #0d1326;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  flex-shrink: 0;
-}
-.meta { min-width: 0; }
-.name-line { display: flex; align-items: center; gap: 8px; }
-.name { font-size: 15px; font-weight: 600; }
-.tag { background: #bfd7ff; color: #1e4bb3; font-size: 11px; padding: 1px 8px; border-radius: 999px; }
-.sub { color: #8a93a6; font-size: 12px; margin-top: 2px; }
-.error { color: #b3343a; font-size: 13px; }
-.muted { color: #8a93a6; font-size: 13px; }
+.tag { background: #e4dfff; color: #6c5ce7; font-size: 11px; padding: 1px 8px; border-radius: 999px; }
+.error { color: var(--coral); font-size: 13px; }
+.muted { color: var(--muted); font-size: 13px; }
 </style>

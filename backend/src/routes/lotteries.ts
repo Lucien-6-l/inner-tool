@@ -80,7 +80,7 @@ router.post('/', async (req: AuthedRequest, res) => {
       type: 'lottery',
       content: lottery.id,
     },
-    include: { sender: { select: { id: true, name: true } } },
+    include: { sender: { select: { id: true, name: true, avatarUrl: true } } },
   });
   getIo()?.to(conversationId).emit('message:new', { message });
   res.json({ ok: true, data: { lottery: await detailOf(lottery.id, req.userId as string), message } });

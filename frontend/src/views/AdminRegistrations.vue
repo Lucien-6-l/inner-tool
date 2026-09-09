@@ -114,7 +114,7 @@ onMounted(load);
         <input v-model="form.phone" placeholder="手机号" />
         <input v-model="form.name" placeholder="真实姓名" />
         <input v-model="form.department" placeholder="部门（如：研发部）" />
-        <button class="primary" :disabled="submitting" @click="submitReg">
+        <button class="btn btn-primary" :disabled="submitting" @click="submitReg">
           {{ isDev ? '录入并发送激活' : '提交等待审批' }}
         </button>
       </div>
@@ -150,8 +150,8 @@ onMounted(load);
             </td>
             <td v-if="isDev">
               <template v-if="r.status === 'PENDING'">
-                <button class="primary small" :disabled="reviewingId === r.id" @click="review(r.id, 'approve')">通过</button>
-                <button class="danger small" :disabled="reviewingId === r.id" @click="review(r.id, 'reject')">拒绝</button>
+                <button class="btn btn-primary sm" :disabled="reviewingId === r.id" @click="review(r.id, 'approve')">通过</button>
+                <button class="btn btn-danger sm" :disabled="reviewingId === r.id" @click="review(r.id, 'reject')">拒绝</button>
                 <input v-if="r.status === 'PENDING'" v-model="rejectReason" class="inline-input" placeholder="拒绝原因（可选）" />
               </template>
               <span v-else class="muted">已处理</span>
@@ -164,53 +164,36 @@ onMounted(load);
 </template>
 
 <style scoped>
-.page { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
-h2 { font-size: 22px; }
-.hint { color: #536174; font-size: 13px; margin: 6px 0 20px; }
+.page { max-width: 1000px; margin: 0 auto; padding: 32px 24px; }
+h2 { font-size: 22px; color: var(--text); }
+.hint { color: var(--muted); font-size: 13px; margin: 6px 0 20px; }
 .card {
-  background: #fff;
-  border-radius: 12px;
+  background: var(--card);
+  border-radius: 16px;
   padding: 20px 24px;
   margin-bottom: 20px;
-  box-shadow: 0 4px 16px rgba(13,19,38,0.06);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
 }
-h3 { font-size: 15px; margin-bottom: 14px; }
+h3 { font-size: 15px; margin-bottom: 14px; color: var(--primary-dark); }
 .form-grid { display: grid; grid-template-columns: repeat(4, 1fr) auto; gap: 10px; }
 input {
-  height: 38px;
-  border: 1px solid #d3dae6;
-  border-radius: 8px;
+  height: 40px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
   padding: 0 10px;
   font-size: 13px;
   outline: none;
+  transition: border-color 0.2s;
 }
-input:focus { border-color: #2563eb; }
+input:focus { border-color: var(--primary); }
 .inline-input { width: 160px; height: 32px; margin-left: 8px; }
-.primary {
-  background: #2563eb;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 0 16px;
-  height: 38px;
-  cursor: pointer;
-  font-size: 13px;
-}
-.primary.small { height: 30px; padding: 0 12px; margin-right: 6px; }
-.danger {
-  background: #fff;
-  color: #b3343a;
-  border: 1px solid #f0c9cb;
-  border-radius: 8px;
-  height: 30px;
-  padding: 0 12px;
-  cursor: pointer;
-  font-size: 13px;
-}
-button:disabled { opacity: 0.6; }
+.btn { height: 40px; padding: 0 18px; border-radius: 10px; }
+.btn.sm { height: 30px; padding: 0 12px; margin-right: 6px; }
+button:disabled { opacity: 0.55; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #eef1f6; }
-th { color: #536174; font-weight: 600; }
+th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); }
+th { color: var(--muted); font-weight: 600; }
 .tag {
   display: inline-block;
   padding: 2px 10px;
@@ -218,10 +201,10 @@ th { color: #536174; font-weight: 600; }
   font-size: 12px;
 }
 .st-pending { background: #fff3d6; color: #8a6100; }
-.st-approved { background: #d8f3e3; color: #0f6b3a; }
-.st-rejected { background: #fde3e3; color: #b3343a; }
-.reason { color: #b3343a; font-size: 12px; }
-.error { color: #b3343a; font-size: 13px; margin-top: 10px; }
-.ok { color: #0f6b3a; font-size: 13px; margin-top: 10px; }
-.muted { color: #8a93a6; font-size: 13px; }
+.st-approved { background: #d8f3e3; color: #0f9d6e; }
+.st-rejected { background: #fde3e3; color: #ff7675; }
+.reason { color: #ff7675; font-size: 12px; }
+.error { color: #ff7675; font-size: 13px; margin-top: 10px; }
+.ok { color: #0f9d6e; font-size: 13px; margin-top: 10px; }
+.muted { color: var(--muted); font-size: 13px; }
 </style>

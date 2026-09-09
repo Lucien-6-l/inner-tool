@@ -82,6 +82,43 @@ router.get('/me', requireAuth, async (req: AuthedRequest, res) => {
   res.json({ ok: true, data: { user: publicUser(user) } });
 });
 
+// 更新自己的资料（头像 / 个性标签）
+router.patch('/me', requireAuth, async (req: AuthedRequest, res) => {
+  const { avatarUrl, bio } = req.body ?? {};
+  const patch: { avatarUrl?: string | null; bio?: string | null } = {};
+  if (avatarUrl !== undefined) {
+    if (avatarUrl === null || avatarUrl === '') {
+      patch.avatarUrl = null;
+    } else if (typeof avatarUrl === 'string' && /^\/uploads\/[A-Za-z0-9._-]+$/.test(avatarUrl)) {
+      patch.avatarUrl = avatarUrl;
+    } else {
+      res.status(400).json({ ok: false, error: '头像地址不合法' });
+      return;
+    }
+  }
+  if (bio !== undefined) {
+    if (bio === null || bio === '') {
+      patch.bio = null;
+    } else if (typeof bio === 'string') {
+      const trimmed = bio.trim();
+      if (trimmed.length > 30) {
+        res.status(400).json({ ok: false, error: '个性标签最多 30 个字' });
+        return;
+      }
+      patch.bio = trimmed || null;
+    } else {
+      res.status(400).json({ ok: false, error: '个性标签格式不正确' });
+      return;
+    }
+  }
+  if (Object.keys(patch).length === 0) {
+    res.status(400).json({ ok: false, error: '至少提供一项要修改的内容' });
+    return;
+  }
+  const user = await prisma.user.update({ where: { id: req.userId }, data: patch });
+  res.json({ ok: true, data: { user: publicUser(user) } });
+});
+
 // 修改自己的密码（所有登录用户）
 router.post('/change-password', requireAuth, async (req: AuthedRequest, res) => {
   const { oldPassword, newPassword } = req.body ?? {};
@@ -118,6 +155,8 @@ function publicUser(u: {
   department: string;
   role: string;
   isActive: boolean;
+  avatarUrl: string | null;
+  bio: string | null;
 }) {
   const { passwordHash: _omit, ...rest } = u as typeof u & { passwordHash: string };
   return rest;

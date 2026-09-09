@@ -25,6 +25,8 @@ model User {
   role         String   @default("MEMBER") // DEV | ADMIN | MEMBER
   passwordHash String
   isActive     Boolean  @default(true)
+  avatarUrl    String? // 头像（上传文件的访问 URL）
+  bio          String? // 个性标签 / 签名
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -67,12 +69,13 @@ model ConversationMember {
 // 消息（必须持久化存储；换设备/清缓存历史不丢）
 // type：text=文本 image=图片 file=文件 lottery=抽奖卡片 lottery_result=开奖结果
 // readAt：direct 场景接收方读取时间（group 用成员 lastReadAt 算未读）
+// senderId 可空：删除成员后保留消息历史（sender 置空，前端显示"已注销"）
 model Message {
   id             String       @id @default(cuid())
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  senderId       String
-  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  senderId       String?
+  sender         User?        @relation(fields: [senderId], references: [id], onDelete: SetNull)
   type           String       @default("text") // text | image | file | lottery | lottery_result
   content        String // 文本内容、资源 URL，或 lottery 关联 id / 结果 JSON
   fileName       String?

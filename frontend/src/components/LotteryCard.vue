@@ -157,50 +157,53 @@ onUnmounted(() => {
 
 <style scoped>
 .card {
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  border-radius: 12px;
+  background: linear-gradient(160deg, #fff7ef, #fff0f6);
+  border: 1px solid #f7d9b0;
+  border-radius: 14px;
   padding: 12px 14px;
   min-width: 240px;
   max-width: 300px;
+  box-shadow: 0 4px 14px rgba(255, 159, 67, 0.15);
 }
 .head { display: flex; align-items: center; gap: 8px; }
-.tag { font-size: 12px; font-weight: 700; }
+.tag { font-size: 12px; font-weight: 700; color: #d97b00; }
 .status { font-size: 11px; padding: 1px 8px; border-radius: 999px; }
-.status.PENDING { background: #ffedd5; color: #c2410c; }
-.status.DRAWN { background: #d8f3e3; color: #0f6b3a; }
+.status.PENDING { background: #ffedd5; color: #d97b00; }
+.status.DRAWN { background: #d8f3e3; color: #0f9d6e; }
 .title { font-size: 14px; font-weight: 600; margin: 8px 0; }
-.img { max-width: 260px; max-height: 260px; border-radius: 8px; display: block; }
+.img { max-width: 260px; max-height: 260px; border-radius: 10px; display: block; }
 .file { display: flex; align-items: center; gap: 6px; color: #334155; text-decoration: none; font-size: 12px; margin: 6px 0; }
 .file-name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.file-size { color: #8a93a6; }
-.meta { display: flex; gap: 12px; font-size: 11px; color: #8a93a6; margin-top: 6px; flex-wrap: wrap; }
+.file-size { color: var(--muted); }
+.meta { display: flex; gap: 12px; font-size: 11px; color: var(--muted); margin-top: 6px; flex-wrap: wrap; }
 .actions { display: flex; gap: 8px; margin-top: 10px; }
 .like {
   background: #fff;
-  border: 1px solid #fed7aa;
-  color: #c2410c;
+  border: 1.5px solid #f7d9b0;
+  color: #d97b00;
   border-radius: 999px;
   padding: 5px 14px;
   font-size: 13px;
   cursor: pointer;
+  transition: all 0.15s;
 }
-.like.liked { background: #c2410c; border-color: #c2410c; color: #fff; }
+.like.liked { background: linear-gradient(135deg, #ff9f43, #ff6b9d); border-color: transparent; color: #fff; box-shadow: 0 4px 10px rgba(255, 159, 67, 0.35); }
 .like:disabled { opacity: 0.6; }
 .draw-btn {
-  background: #c2410c;
+  background: linear-gradient(135deg, #ff9f43, #ff6b9d);
   border: none;
   color: #fff;
   border-radius: 999px;
   padding: 5px 14px;
   font-size: 13px;
   cursor: pointer;
+  box-shadow: 0 4px 10px rgba(255, 159, 67, 0.35);
 }
 .draw-btn:disabled { opacity: 0.6; }
 .winners { margin-top: 10px; font-size: 13px; }
-.winners p { margin: 0 0 6px; font-weight: 600; color: #0f6b3a; }
-.winner { display: inline-flex; align-items: center; background: #fff; border-radius: 999px; padding: 3px 10px; margin: 0 6px 6px 0; font-size: 12px; }
-.dept { color: #8a93a6; font-size: 11px; }
-.muted { color: #8a93a6; font-size: 12px; }
-.error { color: #b3343a; font-size: 12px; }
+.winners p { margin: 0 0 6px; font-weight: 600; color: #0f9d6e; }
+.winner { display: inline-flex; align-items: center; background: #fff; border-radius: 999px; padding: 3px 10px; margin: 0 6px 6px 0; font-size: 12px; box-shadow: var(--shadow-sm); }
+.dept { color: var(--muted); font-size: 11px; }
+.muted { color: var(--muted); font-size: 12px; }
+.error { color: var(--coral); font-size: 12px; }
 </style>

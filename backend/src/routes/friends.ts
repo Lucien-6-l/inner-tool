@@ -12,7 +12,7 @@ router.get('/', async (req: AuthedRequest, res) => {
     where: { ownerId: req.userId },
     include: {
       friend: {
-        select: { id: true, email: true, name: true, phone: true, department: true, role: true },
+        select: { id: true, email: true, name: true, phone: true, department: true, role: true, avatarUrl: true, bio: true },
       },
     },
     orderBy: [{ friend: { department: 'asc' } }, { friend: { name: 'asc' } }],
@@ -39,7 +39,7 @@ router.get('/search', async (req: AuthedRequest, res) => {
       id: { not: req.userId, notIn: [...friendIds] },
       OR: [{ name: { contains: keyword } }, { email: { contains: keyword } }],
     },
-    select: { id: true, email: true, name: true, department: true, role: true },
+    select: { id: true, email: true, name: true, department: true, role: true, avatarUrl: true, bio: true },
     take: 10,
   });
   res.json({ ok: true, data: { list: users } });

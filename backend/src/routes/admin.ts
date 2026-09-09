@@ -113,11 +113,11 @@ router.post('/registrations/:id/review', requireRole(Role.DEV), async (req: Auth
 
 // ===== 成员管理（仅开发者）=====
 
-// 成员列表（仅开发者；附带管理员数量与上限供前端展示）
-router.get('/users', requireRole(Role.DEV), async (_req, res) => {
+// 成员列表（开发者/管理员；开发者可设管理员与编辑，管理员仅可删除普通成员）
+router.get('/users', requireRole(Role.DEV, Role.ADMIN), async (_req, res) => {
   const list = await prisma.user.findMany({
     orderBy: [{ department: 'asc' }, { name: 'asc' }],
-    select: { id: true, email: true, name: true, phone: true, department: true, role: true, isActive: true, createdAt: true },
+    select: { id: true, email: true, name: true, phone: true, department: true, role: true, isActive: true, createdAt: true, avatarUrl: true, bio: true },
   });
   const adminCount = await prisma.user.count({ where: { role: Role.ADMIN } });
   res.json({ ok: true, data: { list, maxAdmins: config.maxAdmins, adminCount } });
@@ -172,6 +172,42 @@ router.patch('/users/:id', requireRole(Role.DEV), async (req, res) => {
   }
   const updated = await prisma.user.update({ where: { id: target.id }, data: patch });
   res.json({ ok: true, data: { user: updated } });
+});
+
+// 删除成员（开发者可删除管理员/成员；管理员只能删除成员）
+// 删除后：好友关系/会话成员资格移除、其发起的抽奖移除、其创建的预注册记录移除；
+// 聊天消息历史保留（发送者标记为已注销）
+router.delete('/users/:id', requireRole(Role.DEV, Role.ADMIN), async (req: AuthedRequest, res) => {
+  const target = await prisma.user.findUnique({ where: { id: req.params.id } });
+  if (!target) {
+    res.status(404).json({ ok: false, error: '成员不存在' });
+    return;
+  }
+  if (target.role === Role.DEV) {
+    res.status(400).json({ ok: false, error: '不能删除开发者账号' });
+    return;
+  }
+  if (req.userId === target.id) {
+    res.status(400).json({ ok: false, error: '不能删除自己的账号' });
+    return;
+  }
+  if (req.role === Role.ADMIN && target.role === Role.ADMIN) {
+    res.status(403).json({ ok: false, error: '管理员不能删除其他管理员，请联系开发者' });
+    return;
+  }
+  if (!target.isActive) {
+    res.status(400).json({ ok: false, error: '该账号已是停用状态' });
+    return;
+  }
+
+  // 事务清理：好友关系（双向）→ 其创建的预注册记录 → 删除账号（其余关系级联）
+  await prisma.$transaction([
+    prisma.contact.deleteMany({ where: { OR: [{ ownerId: target.id }, { friendId: target.id }] } }),
+    prisma.pendingRegistration.deleteMany({ where: { createdById: target.id } }),
+    prisma.user.delete({ where: { id: target.id } }),
+  ]);
+
+  res.json({ ok: true, data: { message: `已删除成员 ${target.name}（${target.email}）` } });
 });
 
 function buildActivateUrl(email: string): string {

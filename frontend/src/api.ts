@@ -12,6 +12,17 @@ export interface UserInfo {
   department: string;
   role: 'DEV' | 'ADMIN' | 'MEMBER';
   isActive: boolean;
+  avatarUrl?: string | null;
+  bio?: string | null;
+}
+
+// 根据名字生成稳定的鲜艳色（用于首字母头像）
+export function colorForName(name: string): string {
+  let h = 0;
+  const s = name || '?';
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  const hue = h % 360;
+  return `hsl(${hue}, 72%, 58%)`;
 }
 
 export const currentUser = ref<UserInfo | null>(loadUser());
@@ -35,6 +46,12 @@ export function clearSession() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
   currentUser.value = null;
+}
+
+// 更新本地缓存的当前用户信息（个人资料修改后调用）
+export function patchLocalUser(user: UserInfo) {
+  currentUser.value = user;
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
 export function getToken(): string | null {

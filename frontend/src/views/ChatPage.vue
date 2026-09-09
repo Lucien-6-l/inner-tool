@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
-import { request, currentUser } from '../api';
+import { request, currentUser, colorForName } from '../api';
 import { connectSocket, disconnectSocket, getSocket } from '../chat';
 import LotteryCard from '../components/LotteryCard.vue';
 
@@ -15,7 +15,7 @@ interface Message {
   fileSize: number | null;
   readAt: string | null;
   createdAt: string;
-  sender: { id: string; name: string };
+  sender: { id: string; name: string; avatarUrl: string | null } | null;
 }
 
 interface LotteryResult {
@@ -319,7 +319,7 @@ onUnmounted(() => {
         <button class="ghost" @click="router.push('/friends')">＋</button>
       </div>
       <div class="conv" v-for="c in list" :key="c.id" :class="{ active: c.id === currentId }" @click="openConversation(c.id)">
-        <div class="avatar" :class="c.kind === 'GROUP' ? 'group' : ''">{{ c.name.trim().slice(0, 1) }}</div>
+        <span class="avatar-c" :class="c.kind === 'GROUP' ? 'group' : ''" :style="c.kind === 'GROUP' ? {} : { background: colorForName(c.name) }">{{ c.name.trim().slice(0, 1) }}</span>
         <div class="conv-main">
           <div class="conv-top">
             <span class="conv-name">{{ c.name }}</span>
@@ -343,37 +343,44 @@ onUnmounted(() => {
         <div class="body" ref="bodyEl" @scroll.passive="() => { if ((bodyEl?.scrollTop ?? 0) < 40) loadOlder(); }">
           <div v-if="hasMore" class="more"><button class="ghost small" @click="loadOlder">加载更早消息</button></div>
           <div v-for="m in messages" :key="m.id" class="row" :class="m.senderId === me() ? 'mine' : 'theirs'">
-            <div class="bubble" :class="m.type === 'lottery' || m.type === 'lottery_result' ? 'card-bubble' : ''">
-              <template v-if="m.type === 'text'">
-                <p class="text">{{ m.content }}</p>
-              </template>
-              <template v-else-if="m.type === 'image'">
-                <img :src="m.content" class="img" alt="图片" />
-              </template>
-              <template v-else-if="m.type === 'file'">
-                <a class="file" :href="m.content" target="_blank" rel="noopener">
-                  <span class="file-icon">📄</span>
-                  <span class="file-meta">
-                    <span class="file-name">{{ m.fileName }}</span>
-                    <span class="file-size">{{ fmtSize(m.fileSize) }}</span>
-                  </span>
-                </a>
-              </template>
-              <template v-else-if="m.type === 'lottery'">
-                <LotteryCard :lottery-id="m.content" />
-              </template>
-              <template v-else-if="m.type === 'lottery_result'">
-                <div v-if="parseLotteryResult(m.content)" class="result">
-                  <p class="result-title">🎉 抽奖结果</p>
-                  <p class="result-sub">中奖 {{ parseLotteryResult(m.content)!.winners.length }} / {{ parseLotteryResult(m.content)!.winnerCount }} 人</p>
-                  <span v-for="w in parseLotteryResult(m.content)!.winners" :key="w.id" class="winner-name">🏆 {{ w.name }}</span>
-                </div>
-              </template>
-            </div>
-            <span class="meta">
-              <span v-if="m.senderId === me()" class="read">{{ m.readAt ? '已读' : '' }}</span>
-              <span class="time">{{ fmtTime(m.createdAt) }}</span>
+            <span v-if="m.senderId !== me()" class="avatar-c xsm" :style="{ background: m.sender ? colorForName(m.sender.name) : '#c3c1d8' }">
+              <img v-if="m.sender?.avatarUrl" :src="m.sender.avatarUrl" alt="" />
+              <template v-else>{{ m.sender ? (m.sender.name || '?').trim().slice(0, 1) : '已' }}</template>
             </span>
+            <div class="bubble-wrap">
+              <span v-if="m.senderId !== me()" class="sender-name">{{ m.sender?.name ?? '已注销' }}</span>
+              <div class="bubble" :class="m.type === 'lottery' || m.type === 'lottery_result' ? 'card-bubble' : ''">
+                <template v-if="m.type === 'text'">
+                  <p class="text">{{ m.content }}</p>
+                </template>
+                <template v-else-if="m.type === 'image'">
+                  <img :src="m.content" class="img" alt="图片" />
+                </template>
+                <template v-else-if="m.type === 'file'">
+                  <a class="file" :href="m.content" target="_blank" rel="noopener">
+                    <span class="file-icon">📄</span>
+                    <span class="file-meta">
+                      <span class="file-name">{{ m.fileName }}</span>
+                      <span class="file-size">{{ fmtSize(m.fileSize) }}</span>
+                    </span>
+                  </a>
+                </template>
+                <template v-else-if="m.type === 'lottery'">
+                  <LotteryCard :lottery-id="m.content" />
+                </template>
+                <template v-else-if="m.type === 'lottery_result'">
+                  <div v-if="parseLotteryResult(m.content)" class="result">
+                    <p class="result-title">🎉 抽奖结果</p>
+                    <p class="result-sub">中奖 {{ parseLotteryResult(m.content)!.winners.length }} / {{ parseLotteryResult(m.content)!.winnerCount }} 人</p>
+                    <span v-for="w in parseLotteryResult(m.content)!.winners" :key="w.id" class="winner-name">🏆 {{ w.name }}</span>
+                  </div>
+                </template>
+              </div>
+              <span class="meta">
+                <span v-if="m.senderId === me()" class="read">{{ m.readAt ? '已读' : '' }}</span>
+                <span class="time">{{ fmtTime(m.createdAt) }}</span>
+              </span>
+            </div>
           </div>
         </div>
         <footer class="input-bar">
@@ -423,15 +430,17 @@ onUnmounted(() => {
 <style scoped>
 .chat {
   display: flex;
-  height: calc(100vh - 56px);
-  max-width: 1080px;
+  height: calc(100vh - 58px);
+  max-width: 1100px;
   margin: 0 auto;
 }
 .side {
   width: 280px;
-  border-right: 1px solid #e8ecf3;
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(6px);
 }
 .side-head {
   display: flex;
@@ -446,37 +455,37 @@ onUnmounted(() => {
   padding: 10px 16px;
   cursor: pointer;
   align-items: center;
+  border-radius: 12px;
+  margin: 0 8px 2px;
+  transition: background 0.15s;
 }
-.conv:hover { background: #f4f6fa; }
-.conv.active { background: #e8f0fe; }
-.avatar {
+.conv:hover { background: rgba(108, 92, 231, 0.07); }
+.conv.active { background: linear-gradient(135deg, rgba(108, 92, 231, 0.12), rgba(0, 206, 201, 0.10)); }
+.avatar-c {
   width: 40px;
   height: 40px;
-  border-radius: 50%;
-  background: #0d1326;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   font-size: 15px;
-  flex-shrink: 0;
+  border-radius: 50%;
 }
-.avatar.group { background: #2563eb; }
+.avatar-c.xsm { width: 30px; height: 30px; font-size: 12px; }
+.avatar-c.group {
+  background: linear-gradient(135deg, #6c5ce7, #00cec9) !important;
+}
 .conv-main { flex: 1; min-width: 0; }
 .conv-top { display: flex; justify-content: space-between; align-items: center; }
 .conv-name { font-size: 14px; font-weight: 600; }
-.time { font-size: 11px; color: #8a93a6; }
+.time { font-size: 11px; color: var(--muted); }
 .conv-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 2px; }
 .last {
   font-size: 12px;
-  color: #8a93a6;
+  color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 180px;
 }
 .badge {
-  background: #e03131;
+  background: linear-gradient(135deg, #ff6b9d, #ff7675);
   color: #fff;
   border-radius: 999px;
   font-size: 11px;
@@ -486,44 +495,56 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 0 5px;
+  box-shadow: 0 2px 6px rgba(255, 107, 157, 0.4);
 }
-.empty { text-align: center; color: #8a93a6; font-size: 13px; padding: 40px 16px; line-height: 1.8; }
+.empty { text-align: center; color: var(--muted); font-size: 13px; padding: 40px 16px; line-height: 1.8; }
 .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .chat-head {
   padding: 12px 20px;
-  border-bottom: 1px solid #e8ecf3;
+  border-bottom: 1px solid var(--border);
   font-weight: 700;
   font-size: 15px;
+  background: rgba(255, 255, 255, 0.7);
 }
 .body {
   flex: 1;
   overflow-y: auto;
   padding: 16px 20px;
-  background: #f8fafc;
+  background: linear-gradient(180deg, rgba(243, 241, 255, 0.6), rgba(239, 249, 255, 0.7));
 }
-.row { display: flex; flex-direction: column; margin-bottom: 14px; }
-.row.mine { align-items: flex-end; }
-.row.theirs { align-items: flex-start; }
+.row { display: flex; margin-bottom: 14px; gap: 8px; align-items: flex-start; }
+.row.mine { justify-content: flex-end; }
+.row.theirs { justify-content: flex-start; }
+.bubble-wrap { max-width: 65%; display: flex; flex-direction: column; }
+.row.mine .bubble-wrap { align-items: flex-end; }
+.row.theirs .bubble-wrap { align-items: flex-start; }
+.sender-name { font-size: 11px; color: var(--muted); margin: 0 0 3px 4px; }
 .bubble {
-  max-width: 65%;
+  max-width: 100%;
   padding: 9px 13px;
-  border-radius: 12px;
+  border-radius: 14px;
   font-size: 14px;
   line-height: 1.55;
   background: #fff;
-  border: 1px solid #e8ecf3;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
 }
-.mine .bubble { background: #2563eb; color: #fff; border-color: #2563eb; }
-.bubble.card-bubble { background: transparent; border: none; padding: 0; max-width: 320px; }
+.mine .bubble {
+  background: var(--grad-main);
+  color: #fff;
+  border: none;
+  box-shadow: 0 4px 14px rgba(108, 92, 231, 0.3);
+}
+.bubble.card-bubble { background: transparent; border: none; padding: 0; box-shadow: none; max-width: 320px; }
 .text { margin: 0; white-space: pre-wrap; word-break: break-word; }
 .result { font-size: 13px; line-height: 1.6; min-width: 180px; }
 .result-title { margin: 0; font-weight: 700; }
-.result-sub { margin: 2px 0 6px; color: #8a93a6; font-size: 12px; }
-.winner-name { display: inline-block; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 999px; padding: 2px 10px; margin: 0 6px 4px 0; font-size: 12px; }
+.result-sub { margin: 2px 0 6px; color: var(--muted); font-size: 12px; }
+.winner-name { display: inline-block; background: #fff; border: 1px solid #f8d9a0; border-radius: 999px; padding: 2px 10px; margin: 0 6px 4px 0; font-size: 12px; color: #b06b00; }
 .img {
   max-width: 280px;
   max-height: 320px;
-  border-radius: 8px;
+  border-radius: 10px;
   display: block;
   cursor: zoom-in;
 }
@@ -538,37 +559,38 @@ onUnmounted(() => {
 .file-meta { display: flex; flex-direction: column; }
 .file-name { font-size: 13px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-size { font-size: 11px; opacity: 0.7; }
-.meta { display: flex; gap: 6px; align-items: center; margin-top: 3px; font-size: 11px; color: #8a93a6; }
-.read { color: #2563eb; }
+.meta { display: flex; gap: 6px; align-items: center; margin-top: 3px; font-size: 11px; color: var(--muted); }
+.read { color: var(--accent); }
 .more { text-align: center; margin-bottom: 10px; }
 .input-bar {
   display: flex;
   gap: 8px;
   padding: 12px 16px;
-  border-top: 1px solid #e8ecf3;
+  border-top: 1px solid var(--border);
   align-items: center;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.9);
   position: relative;
   flex-wrap: wrap;
 }
 .attach {
   height: 40px;
   padding: 0 14px;
-  border: 1px solid #d3dae6;
+  border: 1.5px solid var(--border);
   background: #fff;
-  color: #374151;
-  border-radius: 8px;
+  color: var(--text);
+  border-radius: 10px;
   cursor: pointer;
   font-size: 13px;
   white-space: nowrap;
+  transition: all 0.15s;
 }
-.attach:hover { border-color: #2563eb; color: #2563eb; }
-.lottery-btn { border-color: #fed7aa; color: #c2410c; }
-.lottery-btn:hover { border-color: #c2410c; color: #c2410c; }
+.attach:hover { border-color: var(--primary); color: var(--primary); }
+.lottery-btn { border-color: #f7d9b0; color: #d97b00; }
+.lottery-btn:hover { border-color: #ff9f43; color: #ff9f43; }
 .modal-mask {
   position: fixed;
   inset: 0;
-  background: rgba(13, 19, 38, 0.45);
+  background: rgba(45, 42, 92, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -577,56 +599,59 @@ onUnmounted(() => {
 .modal {
   width: 400px;
   background: #fff;
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 24px;
+  box-shadow: 0 12px 40px rgba(45, 42, 92, 0.2);
 }
-.modal h3 { margin: 0 0 16px; font-size: 17px; }
-.modal label { display: block; font-size: 13px; color: #536174; margin: 12px 0 4px; }
+.modal h3 { margin: 0 0 16px; font-size: 17px; color: var(--primary-dark); }
+.modal label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
 .modal-input {
   width: 100%;
   height: 40px;
-  border: 1px solid #d3dae6;
-  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
   padding: 0 12px;
   font-size: 14px;
   outline: none;
   box-sizing: border-box;
 }
-.modal-input:focus { border-color: #2563eb; }
+.modal-input:focus { border-color: var(--primary); }
 .attach-row { display: flex; align-items: center; gap: 10px; }
-.file-picked { font-size: 12px; color: #0f6b3a; }
-.modal-error { color: #b3343a; font-size: 13px; margin: 10px 0 0; }
+.file-picked { font-size: 12px; color: #0f9d6e; }
+.modal-error { color: var(--coral); font-size: 13px; margin: 10px 0 0; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 .input-error {
   position: absolute;
   bottom: 4px;
   left: 16px;
-  color: #b3343a;
+  color: var(--coral);
   font-size: 12px;
 }
 .text-input {
   flex: 1;
   height: 40px;
-  border: 1px solid #d3dae6;
-  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
   padding: 0 12px;
   font-size: 14px;
   outline: none;
+  min-width: 120px;
 }
-.text-input:focus { border-color: #2563eb; }
+.text-input:focus { border-color: var(--primary); }
 .primary {
   height: 40px;
   padding: 0 22px;
-  background: #2563eb;
+  background: var(--grad-main);
   color: #fff;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   font-size: 14px;
+  box-shadow: 0 4px 12px rgba(108, 92, 231, 0.3);
 }
-.primary:disabled { opacity: 0.6; }
-.ghost { border: none; background: none; cursor: pointer; font-size: 15px; color: #536174; }
+.primary:disabled { opacity: 0.55; }
+.ghost { border: none; background: none; cursor: pointer; font-size: 15px; color: var(--muted); }
 .ghost.small { font-size: 13px; }
 .hidden { display: none; }
-.placeholder { flex: 1; display: flex; align-items: center; justify-content: center; color: #8a93a6; }
+.placeholder { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--muted); }
 </style>

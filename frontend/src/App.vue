@@ -1,48 +1,64 @@
 <script setup lang="ts">
-// 阶段 1 占位页：展示项目已就绪，后续替换为登录页 / 工作台
-import { ref, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
+import { computed } from 'vue';
+import { currentUser, clearSession } from './api';
 
-const backendOk = ref<boolean | null>(null);
-
-onMounted(async () => {
-  try {
-    const res = await fetch('/api/health');
-    backendOk.value = res.ok;
-  } catch {
-    backendOk.value = false;
-  }
+const route = useRoute();
+const isLogin = computed(() => route.path === '/login');
+const roleName = computed(() => {
+  const map: Record<string, string> = { DEV: '开发者', ADMIN: '管理员', MEMBER: '成员' };
+  return map[currentUser.value?.role ?? ''] ?? '';
 });
+
+function logout() {
+  clearSession();
+  location.href = '/login';
+}
 </script>
 
 <template>
-  <main class="shell">
-    <h1>公司内部沟通工具</h1>
-    <p class="sub">阶段 1 · 工程骨架已就绪</p>
-    <p class="status" :class="backendOk === true ? 'ok' : backendOk === false ? 'fail' : 'wait'">
-      {{ backendOk === true ? '后端连接正常' : backendOk === false ? '后端未连接（先启动 backend）' : '检测后端中…' }}
-    </p>
-  </main>
+  <div class="layout">
+    <header v-if="currentUser && !isLogin" class="topbar">
+      <div class="brand">内部沟通工具</div>
+      <div class="user">
+        <span class="name">{{ currentUser.name }}</span>
+        <span class="role">{{ roleName }}</span>
+        <button class="logout" @click="logout">退出</button>
+      </div>
+    </header>
+    <router-view />
+  </div>
 </template>
 
 <style>
-* { box-sizing: border-box; margin: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
   background: #f2f4f8;
   color: #0d1326;
-}
-.shell {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
 }
-h1 { font-size: 28px; }
-.sub { color: #536174; font-size: 15px; }
-.status { font-size: 14px; padding: 6px 14px; border-radius: 999px; }
-.ok { background: #d8f3e3; color: #0f6b3a; }
-.fail { background: #fde3e3; color: #b3343a; }
-.wait { background: #e5e9f0; color: #536174; }
+.layout { min-height: 100vh; }
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 24px;
+  background: #0d1326;
+  color: #fff;
+}
+.brand { font-weight: 700; font-size: 16px; }
+.user { display: flex; align-items: center; gap: 12px; font-size: 14px; }
+.role { color: #bfd7ff; font-size: 12px; }
+.logout {
+  border: 1px solid rgba(255,255,255,0.35);
+  background: transparent;
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.logout:hover { background: rgba(255,255,255,0.12); }
 </style>

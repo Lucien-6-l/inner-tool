@@ -1,0 +1,26 @@
+import { createRouter, createWebHistory } from 'vue-router';
+import { getToken } from './api';
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes: [
+    { path: '/', redirect: '/login' },
+    { path: '/login', component: () => import('./views/LoginPage.vue'), meta: { public: true } },
+    { path: '/activate', component: () => import('./views/ActivatePage.vue'), meta: { public: true } },
+    { path: '/admin/registrations', component: () => import('./views/AdminRegistrations.vue') },
+    { path: '/:pathMatch(.*)*', redirect: '/login' },
+  ],
+});
+
+router.beforeEach((to) => {
+  const authed = Boolean(getToken());
+  if (!to.meta.public && !authed) {
+    return { path: '/login', query: { redirect: to.fullPath } };
+  }
+  if (to.path === '/login' && authed) {
+    return '/admin/registrations';
+  }
+  return true;
+});
+
+export default router;

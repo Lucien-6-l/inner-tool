@@ -12,7 +12,7 @@ export const config = {
   clientOrigin: process.env.CLIENT_ORIGIN ?? 'http://localhost:5173',
   databaseUrl: process.env.DATABASE_URL ?? '',
   redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
-  jwtSecret: process.env.JWT_SECRET ?? 'please_change_me',
+  jwtSecret: process.env.JWT_SECRET ?? '',
   // 管理员数量上限（开发者可调整 .env 的 MAX_ADMINS，当前上限 5）
   maxAdmins: Number(process.env.MAX_ADMINS ?? 5),
   smtp: {

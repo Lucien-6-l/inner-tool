@@ -23,6 +23,12 @@ Thumbs.db
 uploads/
 backend/uploads/
 
+# 本地备份（含用户数据）
+backup/
+
+# .env 备份（含敏感凭据）
+.env.bak
+
 
 # 数据库文件（含用户数据，不入库；部署用 db:seed + migrate 重建）
 backend/prisma/dev.db

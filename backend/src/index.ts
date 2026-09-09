@@ -3,6 +3,7 @@ import cors from 'cors';
 import http from 'node:http';
 import path from 'node:path';
 import fs from 'node:fs';
+import multer from 'multer';
 import { config } from './config.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
@@ -13,6 +14,14 @@ import uploadRoutes from './routes/upload.js';
 import lotteriesRoutes from './routes/lotteries.js';
 import { initSocket } from './socket.js';
 import { checkDueLotteries } from './lib/lottery.js';
+
+// 安全门：JWT_SECRET 必须配置为强随机值，缺失或默认值一律拒绝启动
+if (!config.jwtSecret || config.jwtSecret === 'please_change_me') {
+  console.error(
+    '[config] JWT_SECRET 未配置或仍为默认值，拒绝启动。请在 backend/.env 中设置强随机密钥（node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"）。',
+  );
+  process.exit(1);
+}
 
 // 生产模式：由后端直接托管前端构建产物（单端口访问，无需 5173）
 const isProd = process.env.NODE_ENV === 'production';
@@ -53,6 +62,15 @@ if (serveFrontend) {
 }
 
 const server = http.createServer(app);
+
+// 统一错误处理（multer 文件过大 / 类型不合法等 → JSON 响应，避免返回 HTML 500）
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+    res.status(400).json({ ok: false, error: '文件大小不能超过 50MB' });
+    return;
+  }
+  res.status(400).json({ ok: false, error: err.message || '请求处理失败' });
+});
 
 // Socket.IO —— 实时消息通道（鉴权 + 会话房间）
 initSocket(server, corsOrigins);

@@ -1,11 +1,12 @@
 import { prisma } from '../prisma.js';
 import { getIo } from '../socket.js';
+import { randomInt } from 'node:crypto';
 
-/** 洗牌（Fisher-Yates） */
+/** 洗牌（Fisher-Yates，使用密码学安全随机数保证开奖公平） */
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = randomInt(i + 1);
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;

@@ -4,6 +4,7 @@ import { hashPassword, verifyPassword } from '../lib/password.js';
 import { signAuthToken, signOneTimeToken, verifyOneTimeToken } from '../lib/jwt.js';
 import { RegistrationStatus, Role, TokenType } from '../constants.js';
 import { requireAuth, type AuthedRequest } from '../middleware/auth.js';
+import { buildFriendshipsForUser } from '../lib/friendship.js';
 
 const router = Router();
 
@@ -43,6 +44,10 @@ router.post('/activate', async (req, res) => {
     },
   });
   const authToken = signAuthToken({ sub: user.id, email: user.email, role: user.role });
+  // 阶段 4：激活成功后自动与同部门所有员工互加好友
+  await buildFriendshipsForUser(user.id).catch((err) => {
+    console.error('[friendship] 激活后自动加好友失败（不阻断激活）:', err);
+  });
   res.json({ ok: true, data: { token: authToken, user: publicUser(user) } });
 });
 

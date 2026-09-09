@@ -29,6 +29,22 @@ model User {
   updatedAt    DateTime @updatedAt
 
   registrations PendingRegistration[] @relation("Reviewer")
+  contacts      Contact[]             @relation("Contacts")  // 我加的好友
+  friendOf      Contact[]             @relation("FriendOf")  // 加我为好友的人
+}
+
+// 好友关系（双向：激活成功后自动与同部门同事互加）
+// ownerId 主动方视角，好友关系始终成对出现（A->B 与 B->A）
+model Contact {
+  id        String   @id @default(cuid())
+  ownerId   String
+  owner     User     @relation("Contacts", fields: [ownerId], references: [id], onDelete: Cascade)
+  friendId  String
+  friend    User     @relation("FriendOf", fields: [friendId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([ownerId, friendId])
+  @@index([friendId])
 }
 
 // 预注册名单：开发者直接录入，或管理员提交后由开发者审批

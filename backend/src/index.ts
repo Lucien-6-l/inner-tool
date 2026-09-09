@@ -5,6 +5,7 @@ import { Server } from 'socket.io';
 import { config } from './config.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
+import friendsRoutes from './routes/friends.js';
 
 const app = express();
 app.use(cors({ origin: config.clientOrigin, credentials: true }));
@@ -18,6 +19,7 @@ app.get('/api/health', (_req, res) => {
 // 业务路由
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/friends', friendsRoutes);
 
 const server = http.createServer(app);
 

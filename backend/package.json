@@ -15,7 +15,8 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "db:sync-friendships": "tsx scripts/sync-friendships.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -13,6 +13,7 @@ const router = createRouter({
     { path: '/login', component: () => import('./views/LoginPage.vue'), meta: { public: true } },
     { path: '/activate', component: () => import('./views/ActivatePage.vue'), meta: { public: true } },
     { path: '/profile', component: () => import('./views/ProfilePage.vue') },
+    { path: '/friends', component: () => import('./views/FriendsPage.vue') },
     { path: '/admin/registrations', component: () => import('./views/AdminRegistrations.vue') },
     { path: '/admin/users', component: () => import('./views/UsersPage.vue') },
     { path: '/:pathMatch(.*)*', redirect: '/login' },

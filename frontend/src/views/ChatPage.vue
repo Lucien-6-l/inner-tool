@@ -3,18 +3,25 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { request, currentUser } from '../api';
 import { connectSocket, disconnectSocket, getSocket } from '../chat';
+import LotteryCard from '../components/LotteryCard.vue';
 
 interface Message {
   id: string;
   conversationId: string;
   senderId: string;
-  type: 'text' | 'image' | 'file';
+  type: 'text' | 'image' | 'file' | 'lottery' | 'lottery_result';
   content: string;
   fileName: string | null;
   fileSize: number | null;
   readAt: string | null;
   createdAt: string;
   sender: { id: string; name: string };
+}
+
+interface LotteryResult {
+  lotteryId: string;
+  winnerCount: number;
+  winners: { id: string; name: string; department: string }[];
 }
 
 interface Conversation {
@@ -43,6 +50,14 @@ const sending = ref(false);
 const draft = ref('');
 const fileInput = ref<HTMLInputElement | null>(null);
 const bodyEl = ref<HTMLElement | null>(null);
+const inputError = ref('');
+
+// 发起抽奖弹窗
+const showLottery = ref(false);
+const lotteryForm = ref({ title: '谁想要', winnerCount: 1, deadline: '' });
+const lotteryFile = ref<{ url: string; name: string; size: number } | null>(null);
+const lotteryBusy = ref(false);
+const lotteryError = ref('');
 
 const me = () => currentUser.value?.id ?? '';
 
@@ -118,6 +133,7 @@ async function send() {
   const text = draft.value.trim();
   if (!text || !currentId.value || sending.value) return;
   sending.value = true;
+  inputError.value = '';
   try {
     const data = await request<{ message: Message }>('/api/messages', {
       method: 'POST',
@@ -128,13 +144,17 @@ async function send() {
     await loadConversations();
     await nextTick();
     scrollBottom();
+  } catch (e) {
+    inputError.value = e instanceof Error ? e.message : '发送失败';
   } finally {
     sending.value = false;
   }
 }
 
-function pickFile() {
-  fileInput.value?.click();
+function pickFile(kind: 'image' | 'file') {
+  if (!fileInput.value) return;
+  fileInput.value.accept = kind === 'image' ? 'image/*' : '';
+  fileInput.value.click();
 }
 
 async function onFileChosen(ev: Event) {
@@ -143,6 +163,7 @@ async function onFileChosen(ev: Event) {
   input.value = '';
   if (!file || !currentId.value || sending.value) return;
   sending.value = true;
+  inputError.value = '';
   try {
     const form = new FormData();
     form.append('file', file);
@@ -166,6 +187,8 @@ async function onFileChosen(ev: Event) {
     await loadConversations();
     await nextTick();
     scrollBottom();
+  } catch (e) {
+    inputError.value = e instanceof Error ? e.message : '发送失败';
   } finally {
     sending.value = false;
   }
@@ -193,6 +216,84 @@ function fmtSize(n: number | null): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function parseLotteryResult(content: string): LotteryResult | null {
+  try {
+    return JSON.parse(content) as LotteryResult;
+  } catch {
+    return null;
+  }
+}
+
+// ===== 发起抽奖 =====
+function openLotteryModal() {
+  lotteryForm.value = { title: '谁想要', winnerCount: 1, deadline: '' };
+  lotteryFile.value = null;
+  lotteryError.value = '';
+  showLottery.value = true;
+}
+
+function pickLotteryFile() {
+  lotteryFileInput.value?.click();
+}
+
+const lotteryFileInput = ref<HTMLInputElement | null>(null);
+
+async function onLotteryFileChosen(ev: Event) {
+  const input = ev.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file || lotteryBusy.value) return;
+  lotteryBusy.value = true;
+  lotteryError.value = '';
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    const up = await request<{ url: string; name: string; size: number }>('/api/upload', {
+      method: 'POST',
+      body: form,
+      form: true,
+    });
+    lotteryFile.value = up;
+  } catch (e) {
+    lotteryError.value = e instanceof Error ? e.message : '附件上传失败';
+  } finally {
+    lotteryBusy.value = false;
+  }
+}
+
+async function submitLottery() {
+  if (!currentId.value || lotteryBusy.value) return;
+  const wc = Number(lotteryForm.value.winnerCount);
+  if (!Number.isInteger(wc) || wc < 1) {
+    lotteryError.value = '开奖人数必须是 ≥1 的整数';
+    return;
+  }
+  lotteryBusy.value = true;
+  lotteryError.value = '';
+  try {
+    const payload: Record<string, unknown> = {
+      conversationId: currentId.value,
+      title: lotteryForm.value.title.trim() || '谁想要',
+      winnerCount: wc,
+    };
+    if (lotteryFile.value) {
+      payload.fileUrl = lotteryFile.value.url;
+      payload.fileName = lotteryFile.value.name;
+      payload.fileSize = lotteryFile.value.size;
+    }
+    if (lotteryForm.value.deadline) {
+      payload.deadline = new Date(lotteryForm.value.deadline).toISOString();
+    }
+    await request('/api/lotteries', { method: 'POST', body: JSON.stringify(payload) });
+    showLottery.value = false;
+    await loadConversations();
+  } catch (e) {
+    lotteryError.value = e instanceof Error ? e.message : '发起失败';
+  } finally {
+    lotteryBusy.value = false;
+  }
 }
 
 onMounted(async () => {
@@ -242,14 +343,14 @@ onUnmounted(() => {
         <div class="body" ref="bodyEl" @scroll.passive="() => { if ((bodyEl?.scrollTop ?? 0) < 40) loadOlder(); }">
           <div v-if="hasMore" class="more"><button class="ghost small" @click="loadOlder">加载更早消息</button></div>
           <div v-for="m in messages" :key="m.id" class="row" :class="m.senderId === me() ? 'mine' : 'theirs'">
-            <div class="bubble">
+            <div class="bubble" :class="m.type === 'lottery' || m.type === 'lottery_result' ? 'card-bubble' : ''">
               <template v-if="m.type === 'text'">
                 <p class="text">{{ m.content }}</p>
               </template>
               <template v-else-if="m.type === 'image'">
                 <img :src="m.content" class="img" alt="图片" />
               </template>
-              <template v-else>
+              <template v-else-if="m.type === 'file'">
                 <a class="file" :href="m.content" target="_blank" rel="noopener">
                   <span class="file-icon">📄</span>
                   <span class="file-meta">
@@ -257,6 +358,16 @@ onUnmounted(() => {
                     <span class="file-size">{{ fmtSize(m.fileSize) }}</span>
                   </span>
                 </a>
+              </template>
+              <template v-else-if="m.type === 'lottery'">
+                <LotteryCard :lottery-id="m.content" />
+              </template>
+              <template v-else-if="m.type === 'lottery_result'">
+                <div v-if="parseLotteryResult(m.content)" class="result">
+                  <p class="result-title">🎉 抽奖结果</p>
+                  <p class="result-sub">中奖 {{ parseLotteryResult(m.content)!.winners.length }} / {{ parseLotteryResult(m.content)!.winnerCount }} 人</p>
+                  <span v-for="w in parseLotteryResult(m.content)!.winners" :key="w.id" class="winner-name">🏆 {{ w.name }}</span>
+                </div>
               </template>
             </div>
             <span class="meta">
@@ -266,7 +377,9 @@ onUnmounted(() => {
           </div>
         </div>
         <footer class="input-bar">
-          <button class="ghost" title="发送文件或图片" @click="pickFile">📎</button>
+          <button class="attach" :disabled="sending" @click="pickFile('image')">🖼 图片</button>
+          <button class="attach" :disabled="sending" @click="pickFile('file')">📎 文件</button>
+          <button class="attach lottery-btn" :disabled="sending" @click="openLotteryModal">🎁 抽奖</button>
           <input ref="fileInput" type="file" class="hidden" @change="onFileChosen" />
           <input
             v-model="draft"
@@ -274,8 +387,33 @@ onUnmounted(() => {
             placeholder="输入消息，回车发送"
             @keydown.enter.prevent="send"
           />
-          <button class="primary" :disabled="sending" @click="send">发送</button>
+          <button class="primary" :disabled="sending" @click="send">{{ sending ? '发送中…' : '发送' }}</button>
+          <p v-if="inputError" class="input-error">{{ inputError }}</p>
         </footer>
+
+        <!-- 发起抽奖弹窗 -->
+        <div v-if="showLottery" class="modal-mask" @click.self="showLottery = false">
+          <div class="modal">
+            <h3>发起抽奖</h3>
+            <label>配文</label>
+            <input v-model="lotteryForm.title" class="modal-input" placeholder="如：谁想要这个咖啡杯" />
+            <label>开奖人数</label>
+            <input v-model.number="lotteryForm.winnerCount" class="modal-input" type="number" min="1" max="100" />
+            <label>附件（图片或文件，可选）</label>
+            <div class="attach-row">
+              <input ref="lotteryFileInput" type="file" class="hidden" @change="onLotteryFileChosen" />
+              <button class="ghost" :disabled="lotteryBusy" @click="pickLotteryFile">选择图片 / 文件</button>
+              <span v-if="lotteryFile" class="file-picked">✅ {{ lotteryFile.name }}（{{ fmtSize(lotteryFile.size) }}）</span>
+            </div>
+            <label>开奖时间（留空 = 手动开奖）</label>
+            <input v-model="lotteryForm.deadline" class="modal-input" type="datetime-local" />
+            <p v-if="lotteryError" class="modal-error">{{ lotteryError }}</p>
+            <div class="modal-actions">
+              <button class="ghost" @click="showLottery = false">取消</button>
+              <button class="primary" :disabled="lotteryBusy" @click="submitLottery">{{ lotteryBusy ? '发起中…' : '发起抽奖' }}</button>
+            </div>
+          </div>
+        </div>
       </template>
       <div v-else class="placeholder">选择左侧会话开始聊天</div>
     </section>
@@ -376,7 +514,12 @@ onUnmounted(() => {
   border: 1px solid #e8ecf3;
 }
 .mine .bubble { background: #2563eb; color: #fff; border-color: #2563eb; }
+.bubble.card-bubble { background: transparent; border: none; padding: 0; max-width: 320px; }
 .text { margin: 0; white-space: pre-wrap; word-break: break-word; }
+.result { font-size: 13px; line-height: 1.6; min-width: 180px; }
+.result-title { margin: 0; font-weight: 700; }
+.result-sub { margin: 2px 0 6px; color: #8a93a6; font-size: 12px; }
+.winner-name { display: inline-block; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 999px; padding: 2px 10px; margin: 0 6px 4px 0; font-size: 12px; }
 .img {
   max-width: 280px;
   max-height: 320px;
@@ -405,6 +548,61 @@ onUnmounted(() => {
   border-top: 1px solid #e8ecf3;
   align-items: center;
   background: #fff;
+  position: relative;
+  flex-wrap: wrap;
+}
+.attach {
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid #d3dae6;
+  background: #fff;
+  color: #374151;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.attach:hover { border-color: #2563eb; color: #2563eb; }
+.lottery-btn { border-color: #fed7aa; color: #c2410c; }
+.lottery-btn:hover { border-color: #c2410c; color: #c2410c; }
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(13, 19, 38, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+.modal {
+  width: 400px;
+  background: #fff;
+  border-radius: 14px;
+  padding: 24px;
+}
+.modal h3 { margin: 0 0 16px; font-size: 17px; }
+.modal label { display: block; font-size: 13px; color: #536174; margin: 12px 0 4px; }
+.modal-input {
+  width: 100%;
+  height: 40px;
+  border: 1px solid #d3dae6;
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 14px;
+  outline: none;
+  box-sizing: border-box;
+}
+.modal-input:focus { border-color: #2563eb; }
+.attach-row { display: flex; align-items: center; gap: 10px; }
+.file-picked { font-size: 12px; color: #0f6b3a; }
+.modal-error { color: #b3343a; font-size: 13px; margin: 10px 0 0; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.input-error {
+  position: absolute;
+  bottom: 4px;
+  left: 16px;
+  color: #b3343a;
+  font-size: 12px;
 }
 .text-input {
   flex: 1;

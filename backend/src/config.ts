@@ -13,6 +13,8 @@ export const config = {
   databaseUrl: process.env.DATABASE_URL ?? '',
   redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
   jwtSecret: process.env.JWT_SECRET ?? 'please_change_me',
+  // 管理员数量上限（开发者可调整 .env 的 MAX_ADMINS，当前上限 5）
+  maxAdmins: Number(process.env.MAX_ADMINS ?? 5),
   smtp: {
     host: process.env.SMTP_HOST ?? 'smtp.qq.com',
     port: Number(process.env.SMTP_PORT ?? 465),

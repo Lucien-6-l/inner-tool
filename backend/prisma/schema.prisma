@@ -33,6 +33,9 @@ model User {
   friendOf      Contact[]             @relation("FriendOf")  // 加我为好友的人
   memberships   ConversationMember[]
   messages      Message[]
+  lotteries     Lottery[]             @relation("LotteryCreator")
+  lotteryEntries LotteryEntry[]
+  lotteryWinners LotteryWinner[]
 }
 
 // 会话：DIRECT=单聊（好友间） GROUP=部门群（按部门自动生成）
@@ -45,6 +48,7 @@ model Conversation {
 
   members  ConversationMember[]
   messages Message[]
+  lotteries Lottery[]
 }
 
 model ConversationMember {
@@ -61,7 +65,7 @@ model ConversationMember {
 }
 
 // 消息（必须持久化存储；换设备/清缓存历史不丢）
-// type：text=文本 image=图片 file=文件
+// type：text=文本 image=图片 file=文件 lottery=抽奖卡片 lottery_result=开奖结果
 // readAt：direct 场景接收方读取时间（group 用成员 lastReadAt 算未读）
 model Message {
   id             String       @id @default(cuid())
@@ -69,14 +73,63 @@ model Message {
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   senderId       String
   sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
-  type           String       @default("text") // text | image | file
-  content        String // 文本内容或资源 URL
+  type           String       @default("text") // text | image | file | lottery | lottery_result
+  content        String // 文本内容、资源 URL，或 lottery 关联 id / 结果 JSON
   fileName       String?
   fileSize       Int?
   readAt         DateTime?
   createdAt      DateTime     @default(now())
 
   @@index([conversationId, createdAt])
+}
+
+// 抽奖（"谁想要"点赞即报名；支持定时自动开奖 / 手动开奖）
+// status：PENDING=报名中 DRAWN=已开奖 CANCELLED=已取消
+model Lottery {
+  id             String   @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  creatorId      String
+  creator        User     @relation("LotteryCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  title          String // 配文（如"谁想要"）
+  fileUrl        String? // 附件：图片或文件 URL
+  fileName       String?
+  fileSize       Int?
+  winnerCount    Int // 开奖人数（发起人设置）
+  deadline       DateTime? // 开奖时间（null = 手动开奖）
+  status         String   @default("PENDING") // PENDING | DRAWN | CANCELLED
+  drawnAt        DateTime?
+  createdAt      DateTime @default(now())
+
+  entries LotteryEntry[]
+  winners LotteryWinner[]
+
+  @@index([conversationId])
+  @@index([status, deadline])
+}
+
+// 参与记录（点赞即报名，取消点赞即删除 = 取消资格）
+model LotteryEntry {
+  id        String   @id @default(cuid())
+  lotteryId String
+  lottery   Lottery  @relation(fields: [lotteryId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([lotteryId, userId])
+}
+
+// 中奖名单
+model LotteryWinner {
+  id        String   @id @default(cuid())
+  lotteryId String
+  lottery   Lottery  @relation(fields: [lotteryId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([lotteryId, userId])
 }
 
 // 好友关系（双向：激活成功后自动与同部门同事互加）

@@ -113,16 +113,17 @@ router.post('/registrations/:id/review', requireRole(Role.DEV), async (req: Auth
 
 // ===== 成员管理（仅开发者）=====
 
-// 成员列表
+// 成员列表（仅开发者；附带管理员数量与上限供前端展示）
 router.get('/users', requireRole(Role.DEV), async (_req, res) => {
   const list = await prisma.user.findMany({
     orderBy: [{ department: 'asc' }, { name: 'asc' }],
     select: { id: true, email: true, name: true, phone: true, department: true, role: true, isActive: true, createdAt: true },
   });
-  res.json({ ok: true, data: { list } });
+  const adminCount = await prisma.user.count({ where: { role: Role.ADMIN } });
+  res.json({ ok: true, data: { list, maxAdmins: config.maxAdmins, adminCount } });
 });
 
-// 设置 / 撤销管理员（仅开发者；不能修改开发者账号）
+// 设置 / 撤销管理员（仅开发者；不能修改开发者账号；管理员数量上限 5）
 router.post('/users/:id/role', requireRole(Role.DEV), async (req, res) => {
   const { role } = req.body ?? {};
   if (role !== Role.ADMIN && role !== Role.MEMBER) {
@@ -137,6 +138,13 @@ router.post('/users/:id/role', requireRole(Role.DEV), async (req, res) => {
   if (target.role === Role.DEV) {
     res.status(400).json({ ok: false, error: '不能修改开发者账号的角色' });
     return;
+  }
+  if (role === Role.ADMIN && target.role !== Role.ADMIN) {
+    const adminCount = await prisma.user.count({ where: { role: Role.ADMIN } });
+    if (adminCount >= config.maxAdmins) {
+      res.status(400).json({ ok: false, error: `管理员数量已达上限 ${config.maxAdmins} 人` });
+      return;
+    }
   }
   const updated = await prisma.user.update({ where: { id: target.id }, data: { role } });
   res.json({ ok: true, data: { user: updated } });

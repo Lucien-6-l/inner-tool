@@ -1,5 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import { getToken } from './api';
+import { getToken, currentUser } from './api';
+
+function defaultHome(): string {
+  const role = currentUser.value?.role;
+  return role === 'DEV' || role === 'ADMIN' ? '/admin/registrations' : '/profile';
+}
 
 const router = createRouter({
   history: createWebHistory(),
@@ -7,7 +12,9 @@ const router = createRouter({
     { path: '/', redirect: '/login' },
     { path: '/login', component: () => import('./views/LoginPage.vue'), meta: { public: true } },
     { path: '/activate', component: () => import('./views/ActivatePage.vue'), meta: { public: true } },
+    { path: '/profile', component: () => import('./views/ProfilePage.vue') },
     { path: '/admin/registrations', component: () => import('./views/AdminRegistrations.vue') },
+    { path: '/admin/users', component: () => import('./views/UsersPage.vue') },
     { path: '/:pathMatch(.*)*', redirect: '/login' },
   ],
 });
@@ -18,7 +25,7 @@ router.beforeEach((to) => {
     return { path: '/login', query: { redirect: to.fullPath } };
   }
   if (to.path === '/login' && authed) {
-    return '/admin/registrations';
+    return defaultHome();
   }
   return true;
 });

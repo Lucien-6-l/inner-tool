@@ -77,6 +77,34 @@ router.get('/me', requireAuth, async (req: AuthedRequest, res) => {
   res.json({ ok: true, data: { user: publicUser(user) } });
 });
 
+// 修改自己的密码（所有登录用户）
+router.post('/change-password', requireAuth, async (req: AuthedRequest, res) => {
+  const { oldPassword, newPassword } = req.body ?? {};
+  if (typeof oldPassword !== 'string' || typeof newPassword !== 'string') {
+    res.status(400).json({ ok: false, error: '原密码和新密码必填' });
+    return;
+  }
+  if (newPassword.length < 8) {
+    res.status(400).json({ ok: false, error: '新密码至少 8 位' });
+    return;
+  }
+  const user = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!user) {
+    res.status(404).json({ ok: false, error: '用户不存在' });
+    return;
+  }
+  const ok = await verifyPassword(oldPassword, user.passwordHash);
+  if (!ok) {
+    res.status(400).json({ ok: false, error: '原密码不正确' });
+    return;
+  }
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash: await hashPassword(newPassword) },
+  });
+  res.json({ ok: true, data: { message: '密码已更新' } });
+});
+
 function publicUser(u: {
   id: string;
   email: string;

@@ -111,6 +111,61 @@ router.post('/registrations/:id/review', requireRole(Role.DEV), async (req: Auth
   res.status(400).json({ ok: false, error: 'action 必须是 approve 或 reject' });
 });
 
+// ===== 成员管理（仅开发者）=====
+
+// 成员列表
+router.get('/users', requireRole(Role.DEV), async (_req, res) => {
+  const list = await prisma.user.findMany({
+    orderBy: [{ department: 'asc' }, { name: 'asc' }],
+    select: { id: true, email: true, name: true, phone: true, department: true, role: true, isActive: true, createdAt: true },
+  });
+  res.json({ ok: true, data: { list } });
+});
+
+// 设置 / 撤销管理员（仅开发者；不能修改开发者账号）
+router.post('/users/:id/role', requireRole(Role.DEV), async (req, res) => {
+  const { role } = req.body ?? {};
+  if (role !== Role.ADMIN && role !== Role.MEMBER) {
+    res.status(400).json({ ok: false, error: 'role 必须是 ADMIN 或 MEMBER' });
+    return;
+  }
+  const target = await prisma.user.findUnique({ where: { id: req.params.id } });
+  if (!target) {
+    res.status(404).json({ ok: false, error: '成员不存在' });
+    return;
+  }
+  if (target.role === Role.DEV) {
+    res.status(400).json({ ok: false, error: '不能修改开发者账号的角色' });
+    return;
+  }
+  const updated = await prisma.user.update({ where: { id: target.id }, data: { role } });
+  res.json({ ok: true, data: { user: updated } });
+});
+
+// 修改成员信息（仅开发者；不能修改开发者账号）
+router.patch('/users/:id', requireRole(Role.DEV), async (req, res) => {
+  const { name, phone, department } = req.body ?? {};
+  const patch: { name?: string; phone?: string; department?: string } = {};
+  if (typeof name === 'string' && name.trim()) patch.name = name.trim();
+  if (typeof phone === 'string' && phone.trim()) patch.phone = phone.trim();
+  if (typeof department === 'string' && department.trim()) patch.department = department.trim();
+  if (Object.keys(patch).length === 0) {
+    res.status(400).json({ ok: false, error: '至少提供一项要修改的信息（姓名/手机号/部门）' });
+    return;
+  }
+  const target = await prisma.user.findUnique({ where: { id: req.params.id } });
+  if (!target) {
+    res.status(404).json({ ok: false, error: '成员不存在' });
+    return;
+  }
+  if (target.role === Role.DEV) {
+    res.status(400).json({ ok: false, error: '不能修改开发者账号信息' });
+    return;
+  }
+  const updated = await prisma.user.update({ where: { id: target.id }, data: patch });
+  res.json({ ok: true, data: { user: updated } });
+});
+
 function buildActivateUrl(email: string): string {
   const token = signOneTimeToken({ type: TokenType.ACTIVATE, email });
   return `${config.clientOrigin}/activate?token=${token}`;

@@ -6,9 +6,9 @@ import type http from 'node:http';
 
 let io: Server | null = null;
 
-export function initSocket(server: http.Server): Server {
+export function initSocket(server: http.Server, corsOrigins: string[] = [config.clientOrigin]): Server {
   io = new Server(server, {
-    cors: { origin: config.clientOrigin, credentials: true },
+    cors: { origin: corsOrigins, credentials: true },
   });
 
   // 鉴权：握手时带 Authorization: Bearer <token>（或 auth.token）

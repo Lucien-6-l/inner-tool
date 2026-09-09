@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import http from 'node:http';
 import path from 'node:path';
+import fs from 'node:fs';
 import { config } from './config.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
@@ -13,8 +14,17 @@ import lotteriesRoutes from './routes/lotteries.js';
 import { initSocket } from './socket.js';
 import { checkDueLotteries } from './lib/lottery.js';
 
+// 生产模式：由后端直接托管前端构建产物（单端口访问，无需 5173）
+const isProd = process.env.NODE_ENV === 'production';
+const frontendDist = path.resolve(process.cwd(), '../frontend/dist');
+const serveFrontend = isProd && fs.existsSync(path.join(frontendDist, 'index.html'));
+
+// CORS 白名单：开发期前端 5173；生产模式额外放行同源端口
+const corsOrigins = [config.clientOrigin];
+if (serveFrontend) corsOrigins.push(`http://localhost:${config.port}`);
+
 const app = express();
-app.use(cors({ origin: config.clientOrigin, credentials: true }));
+app.use(cors({ origin: corsOrigins, credentials: true }));
 app.use(express.json());
 
 // 健康检查
@@ -34,10 +44,18 @@ app.use('/api/messages', messagesRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/lotteries', lotteriesRoutes);
 
+// 生产模式：托管前端静态文件 + SPA 路由回退（API/上传/socket 不拦截）
+if (serveFrontend) {
+  app.use(express.static(frontendDist));
+  app.get(/^(?!\/api\/|\/uploads\/|\/socket\.io).*/, (_req, res) => {
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+}
+
 const server = http.createServer(app);
 
 // Socket.IO —— 实时消息通道（鉴权 + 会话房间）
-initSocket(server);
+initSocket(server, corsOrigins);
 
 // 定时开奖：每分钟检查一次到期的抽奖
 setInterval(() => {

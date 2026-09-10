@@ -12,6 +12,8 @@ import conversationsRoutes from './routes/conversations.js';
 import messagesRoutes from './routes/messages.js';
 import uploadRoutes from './routes/upload.js';
 import lotteriesRoutes from './routes/lotteries.js';
+import timelinesRoutes from './routes/timelines.js';
+import mergeRequestsRoutes from './routes/mergeRequests.js';
 import { initSocket } from './socket.js';
 import { checkDueLotteries } from './lib/lottery.js';
 
@@ -52,6 +54,8 @@ app.use('/api/conversations', conversationsRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/lotteries', lotteriesRoutes);
+app.use('/api/timelines', timelinesRoutes);
+app.use('/api', mergeRequestsRoutes);
 
 // 生产模式：托管前端静态文件 + SPA 路由回退（API/上传/socket 不拦截）
 if (serveFrontend) {

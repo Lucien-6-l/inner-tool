@@ -26,6 +26,7 @@ function logout() {
       <nav class="nav">
         <router-link to="/chat" :class="{ active: route.path.startsWith('/chat') }">消息</router-link>
         <router-link to="/friends" :class="{ active: route.path.startsWith('/friends') }">通讯录</router-link>
+        <router-link to="/timelines" :class="{ active: route.path.startsWith('/timelines') }">时间线</router-link>
         <router-link v-if="isStaff" to="/admin/registrations" :class="{ active: route.path.startsWith('/admin/registrations') }">预注册管理</router-link>
         <router-link v-if="isStaff" to="/admin/users" :class="{ active: route.path.startsWith('/admin/users') }">成员管理</router-link>
         <router-link to="/profile" :class="{ active: route.path === '/profile' }">我的</router-link>

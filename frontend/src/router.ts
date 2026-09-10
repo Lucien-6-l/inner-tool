@@ -16,6 +16,9 @@ const router = createRouter({
     { path: '/chat', component: () => import('./views/ChatPage.vue') },
     { path: '/admin/registrations', component: () => import('./views/AdminRegistrations.vue') },
     { path: '/admin/users', component: () => import('./views/UsersPage.vue') },
+    { path: '/timelines', component: () => import('./views/TimelineListPage.vue') },
+    { path: '/timelines/:id', component: () => import('./views/TimelineDetailPage.vue') },
+    { path: '/timelines/:id/mr/:mrId', component: () => import('./views/MergeRequestPage.vue') },
     { path: '/:pathMatch(.*)*', redirect: '/login' },
   ],
 });

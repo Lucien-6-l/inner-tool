@@ -38,6 +38,15 @@ model User {
   lotteries     Lottery[]             @relation("LotteryCreator")
   lotteryEntries LotteryEntry[]
   lotteryWinners LotteryWinner[]
+  timelinesCreated     Timeline[]            @relation("TimelineCreator")
+  timelineParticipants TimelineParticipant[]
+  timelineBranches     TimelineBranch[]
+  timelineFiles        TimelineFile[]        @relation("FileUploader")
+  mergeRequestsCreated MergeRequest[]        @relation("MRCreator")
+  mergeRequestsMerged  MergeRequest[]        @relation("MRMerged")
+  mergeRequestVotes    MergeRequestVote[]
+  mergeRequestComments MergeRequestComment[]
+  timelineActivities   TimelineActivity[]
 }
 
 // 会话：DIRECT=单聊（好友间） GROUP=部门群（按部门自动生成）
@@ -170,4 +179,149 @@ model PendingRegistration {
   @@unique([email, department])
   @@index([status])
   @@index([createdById])
+}
+
+// ==================== 时间线（项目版本链） ====================
+// 一条时间线 = 一个项目；主线为全体参与者共有，每人一个个人分支
+// 汇入主线需全体参与者 > 2/3 赞成票
+
+model Timeline {
+  id          String   @id @default(cuid())
+  name        String // 项目名称
+  description String? // 项目描述
+  creatorId   String // 项目发起人（必有个人分支，但不一定是投票参与者）
+  creator     User     @relation("TimelineCreator", fields: [creatorId], references: [id])
+  status      String   @default("active") // active | archived
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  participants TimelineParticipant[]
+  branches     TimelineBranch[]
+  mergeRequests MergeRequest[]
+  activities   TimelineActivity[]
+
+  @@index([creatorId])
+  @@index([status])
+}
+
+// 时间线参与者（拥有投票权；发起人不一定在此表中）
+model TimelineParticipant {
+  id         String   @id @default(cuid())
+  timelineId String
+  timeline   Timeline @relation(fields: [timelineId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt   DateTime @default(now())
+
+  @@unique([timelineId, userId])
+  @@index([userId])
+}
+
+// 分支：isMain=true 为主线（ownerId 为空，全体共有）；isMain=false 为个人分支
+model TimelineBranch {
+  id         String   @id @default(cuid())
+  timelineId String
+  timeline   Timeline @relation(fields: [timelineId], references: [id], onDelete: Cascade)
+  ownerId    String? // 个人分支拥有者；主线为空
+  owner      User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  isMain     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  files       TimelineFile[]
+  mergeRequestsAsSource MergeRequest[] @relation("SourceBranch")
+  activities  TimelineActivity[]
+
+  @@index([timelineId])
+  @@index([ownerId])
+}
+
+// 分支内文件（含版本号，汇入后保留历史）
+model TimelineFile {
+  id           String   @id @default(cuid())
+  branchId     String
+  branch       TimelineBranch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  filename     String
+  filePath     String // 服务器存储路径
+  fileSize     Int
+  mimeType     String
+  version      Int // 分支内版本号，同名文件递增
+  uploadedById String
+  uploadedBy   User     @relation("FileUploader", fields: [uploadedById], references: [id])
+  uploadedAt   DateTime @default(now())
+
+  @@unique([branchId, filename, version])
+  @@index([branchId])
+}
+
+// 汇入请求：个人分支 → 主线
+// status: pending=投票中 approved=已通过待汇入 rejected=已驳回 merged=已汇入
+model MergeRequest {
+  id             String   @id @default(cuid())
+  timelineId     String
+  timeline       Timeline @relation(fields: [timelineId], references: [id], onDelete: Cascade)
+  sourceBranchId String
+  sourceBranch   TimelineBranch @relation("SourceBranch", fields: [sourceBranchId], references: [id])
+  title          String
+  description    String? // 附带说明
+  status         String   @default("pending") // pending | approved | rejected | merged
+  createdById    String
+  createdBy      User     @relation("MRCreator", fields: [createdById], references: [id])
+  createdAt      DateTime @default(now())
+  mergedAt       DateTime?
+  mergedById     String?
+  mergedBy       User?    @relation("MRMerged", fields: [mergedById], references: [id])
+  resubmitCount  Int      @default(0) // 被拒后重新提交次数
+
+  votes    MergeRequestVote[]
+  comments MergeRequestComment[]
+
+  @@index([timelineId, status])
+  @@index([sourceBranchId])
+}
+
+// 投票：approve=赞成 reject=驳回(必填comment) abstain=弃权
+model MergeRequestVote {
+  id             String   @id @default(cuid())
+  mergeRequestId String
+  mergeRequest   MergeRequest @relation(fields: [mergeRequestId], references: [id], onDelete: Cascade)
+  voterId        String // 必须是 TimelineParticipant
+  voter          User     @relation(fields: [voterId], references: [id], onDelete: Cascade)
+  vote           String // approve | reject | abstain
+  comment        String? // reject 时必填具体问题
+  createdAt      DateTime @default(now())
+
+  @@unique([mergeRequestId, voterId])
+  @@index([mergeRequestId])
+}
+
+// 汇入请求评论讨论
+model MergeRequestComment {
+  id             String   @id @default(cuid())
+  mergeRequestId String
+  mergeRequest   MergeRequest @relation(fields: [mergeRequestId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content        String
+  createdAt      DateTime @default(now())
+
+  @@index([mergeRequestId])
+}
+
+// 版本链时间记录：所有操作留痕
+// actionType: timeline_created | participant_added | participant_removed |
+//   branch_created | file_uploaded | file_deleted | mr_created | mr_voted |
+//   mr_approved | mr_rejected | mr_merged | mr_resubmitted | mr_commented
+model TimelineActivity {
+  id         String   @id @default(cuid())
+  timelineId String
+  timeline   Timeline @relation(fields: [timelineId], references: [id], onDelete: Cascade)
+  branchId   String?
+  branch     TimelineBranch? @relation(fields: [branchId], references: [id])
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actionType String
+  detail     String? // JSON 详情
+  createdAt  DateTime @default(now())
+
+  @@index([timelineId, createdAt])
 }

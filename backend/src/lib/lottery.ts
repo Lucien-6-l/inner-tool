@@ -28,7 +28,7 @@ export async function drawLottery(lotteryId: string): Promise<{ ok: boolean; err
   if (!lottery) return { ok: false, error: '抽奖不存在' };
   if (lottery.status !== 'PENDING') return { ok: false, error: '该抽奖已结束' };
 
-  const pool = lottery.entries.map((e) => e.user);
+  const pool = lottery.entries.map((e) => e.user) as { id: string; name: string; department: string }[];
   const take = Math.min(lottery.winnerCount, pool.length);
   const winners = shuffle(pool).slice(0, take);
 

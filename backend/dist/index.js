@@ -16,6 +16,8 @@ import timelinesRoutes from './routes/timelines.js';
 import mergeRequestsRoutes from './routes/mergeRequests.js';
 import { initSocket } from './socket.js';
 import { checkDueLotteries } from './lib/lottery.js';
+import { prisma } from './prisma.js';
+import { hashPassword } from './lib/password.js';
 // 安全门：JWT_SECRET 必须配置为强随机值，缺失或默认值一律拒绝启动
 if (!config.jwtSecret || config.jwtSecret === 'please_change_me') {
     console.error('[config] JWT_SECRET 未配置或仍为默认值，拒绝启动。请在 backend/.env 中设置强随机密钥（node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"）。');
@@ -70,7 +72,36 @@ initSocket(server, corsOrigins);
 setInterval(() => {
     checkDueLotteries().catch((err) => console.error('[lottery] 定时开奖失败:', err));
 }, 60 * 1000);
-server.listen(config.port, () => {
+// 启动时初始化开发者账号（从环境变量读取，仅当账号不存在时创建）
+async function ensureDevAccount() {
+    const email = process.env.SEED_DEV_EMAIL?.toLowerCase();
+    const password = process.env.SEED_DEV_PASSWORD;
+    if (!email || !password || password.length < 8)
+        return;
+    try {
+        const existing = await prisma.user.findUnique({ where: { email } });
+        if (existing) {
+            console.log(`[init] 开发者账号已存在: ${email}`);
+            return;
+        }
+        await prisma.user.create({
+            data: {
+                email,
+                phone: '00000000000',
+                name: '开发者',
+                department: '管理',
+                role: 'DEV',
+                passwordHash: await hashPassword(password),
+            },
+        });
+        console.log(`[init] 已创建开发者账号: ${email}`);
+    }
+    catch (err) {
+        console.error('[init] 开发者账号初始化失败:', err);
+    }
+}
+server.listen(config.port, async () => {
     console.log(`[inner-tool] backend listening on http://localhost:${config.port}`);
+    await ensureDevAccount();
 });
 //# sourceMappingURL=index.js.map

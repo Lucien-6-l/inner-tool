@@ -1,16 +1,13 @@
 // Prisma schema —— 公司内部沟通工具
-// 阶段 1：用户 + 预注册名单两张核心表；好友/消息/抽奖等随后续阶段追加
-//
-// 开发期使用 SQLite（零安装）；部署到服务器时把 provider 改回 postgresql、
-// DATABASE_URL 改成 PG 连接串即可，表结构无需改动。
-// 说明：SQLite 连接器不支持 enum，角色/状态用字符串 + 常量注释代替。
+// 生产环境使用 PostgreSQL（Render 托管）；本地开发可用 SQLite。
+// 说明：为兼容 SQLite，角色/状态用字符串 + 常量注释代替 enum。
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

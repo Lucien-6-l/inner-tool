@@ -10,6 +10,8 @@ const smtpConfigured = Boolean(
 export const config = {
   port: Number(process.env.PORT ?? 3000),
   clientOrigin: process.env.CLIENT_ORIGIN ?? 'http://localhost:5173',
+  // 后端公网地址（用于生成上传文件的完整 URL）；本地开发留空用相对路径
+  publicUrl: process.env.PUBLIC_URL ?? '',
   databaseUrl: process.env.DATABASE_URL ?? '',
   redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
   jwtSecret: process.env.JWT_SECRET ?? '',

@@ -4,6 +4,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { requireAuth } from '../middleware/auth.js';
+import { config } from '../config.js';
 
 const router = Router();
 
@@ -56,10 +57,12 @@ router.post('/', requireAuth, upload.single('file'), (req, res) => {
     res.status(400).json({ ok: false, error: '未收到文件' });
     return;
   }
+  const relativeUrl = `/uploads/${req.file.filename}`;
+  const fullUrl = config.publicUrl ? `${config.publicUrl}${relativeUrl}` : relativeUrl;
   res.json({
     ok: true,
     data: {
-      url: `/uploads/${req.file.filename}`,
+      url: fullUrl,
       name: req.file.originalname,
       size: req.file.size,
     },

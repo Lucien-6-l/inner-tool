@@ -4,6 +4,9 @@ import { ref } from 'vue';
 export const TOKEN_KEY = 'inner_tool_token';
 export const USER_KEY = 'inner_tool_user';
 
+// API 基础地址：开发期用相对路径（走 vite proxy），生产环境指向 Render 后端
+export const API_BASE = import.meta.env.DEV ? '' : 'https://inner-tool-backend.onrender.com';
+
 export interface UserInfo {
   id: string;
   email: string;
@@ -77,7 +80,7 @@ export async function request<T>(path: string, options: RequestInit & { form?: b
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(path, { ...options, headers });
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
   const body = await res.json().catch(() => null);
 
   if (res.status === 401) {

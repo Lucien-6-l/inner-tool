@@ -85,8 +85,8 @@ export async function request<T>(path: string, options: RequestInit & { form?: b
 
   if (res.status === 401) {
     clearSession();
-    if (!location.pathname.startsWith('/login')) {
-      location.href = '/login';
+    if (!location.hash.startsWith('#/login')) {
+      location.hash = '#/login';
     }
     throw new ApiError(res.status, body?.error ?? '未登录');
   }

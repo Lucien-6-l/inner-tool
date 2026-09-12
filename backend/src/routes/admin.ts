@@ -212,7 +212,8 @@ router.delete('/users/:id', requireRole(Role.DEV, Role.ADMIN), async (req: Authe
 
 function buildActivateUrl(email: string): string {
   const token = signOneTimeToken({ type: TokenType.ACTIVATE, email });
-  return `${config.clientOrigin}/activate?token=${token}`;
+  // GitHub Pages 部署在 /inner-tool/ 子路径，且使用 hash 路由
+  return `${config.clientOrigin}/inner-tool/#/activate?token=${token}`;
 }
 
 export default router;

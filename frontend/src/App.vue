@@ -15,7 +15,7 @@ const roleName = computed(() => {
 
 function logout() {
   clearSession();
-  location.href = '/login';
+  router.push('/login');
 }
 </script>
 

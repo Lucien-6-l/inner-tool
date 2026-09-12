@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHashHistory } from 'vue-router';
 import { getToken } from './api';
 
 function defaultHome(): string {
@@ -6,7 +6,7 @@ function defaultHome(): string {
 }
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHashHistory(),
   routes: [
     { path: '/', redirect: '/login' },
     { path: '/login', component: () => import('./views/LoginPage.vue'), meta: { public: true } },

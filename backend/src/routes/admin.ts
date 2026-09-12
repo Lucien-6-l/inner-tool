@@ -111,6 +111,55 @@ router.post('/registrations/:id/review', requireRole(Role.DEV), async (req: Auth
   res.status(400).json({ ok: false, error: 'action 必须是 approve 或 reject' });
 });
 
+// 重发激活邮件（仅对已通过且未激活的记录有效）
+// 开发者可重发所有记录；管理员只能重发自己提交的记录
+router.post('/registrations/:id/resend', requireRole(Role.DEV, Role.ADMIN), async (req: AuthedRequest, res) => {
+  const reg = await prisma.pendingRegistration.findUnique({ where: { id: req.params.id } });
+  if (!reg) {
+    res.status(404).json({ ok: false, error: '名单不存在' });
+    return;
+  }
+  if (req.role === Role.ADMIN && reg.createdById !== req.userId) {
+    res.status(403).json({ ok: false, error: '只能重发自己提交的名单' });
+    return;
+  }
+  if (reg.status !== RegistrationStatus.APPROVED) {
+    res.status(400).json({ ok: false, error: '只有已通过的记录才能重发激活邮件' });
+    return;
+  }
+  // 检查是否已激活
+  if (await prisma.user.findUnique({ where: { email: reg.email } })) {
+    res.status(400).json({ ok: false, error: '该邮箱已激活，无需重发' });
+    return;
+  }
+  const activateUrl = buildActivateUrl(reg.email);
+  const result = await sendActivationMail(reg.email, reg.name, activateUrl);
+  res.json({
+    ok: true,
+    data: {
+      delivered: result.delivered,
+      consoleUrl: result.consoleUrl,
+      message: result.delivered ? '激活邮件已重新发送' : 'SMTP未配置，激活链接已输出到控制台',
+    },
+  });
+});
+
+// 删除预注册记录
+// 开发者可删除所有记录；管理员只能删除自己提交的记录
+router.delete('/registrations/:id', requireRole(Role.DEV, Role.ADMIN), async (req: AuthedRequest, res) => {
+  const reg = await prisma.pendingRegistration.findUnique({ where: { id: req.params.id } });
+  if (!reg) {
+    res.status(404).json({ ok: false, error: '名单不存在' });
+    return;
+  }
+  if (req.role === Role.ADMIN && reg.createdById !== req.userId) {
+    res.status(403).json({ ok: false, error: '只能删除自己提交的名单' });
+    return;
+  }
+  await prisma.pendingRegistration.delete({ where: { id: reg.id } });
+  res.json({ ok: true, data: { message: `已删除预注册记录 ${reg.name}（${reg.email}）` } });
+});
+
 // ===== 成员管理（仅开发者）=====
 
 // 成员列表（开发者/管理员；开发者可设管理员与编辑，管理员仅可删除普通成员）

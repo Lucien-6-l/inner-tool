@@ -29,8 +29,19 @@ const formOk = ref('');
 const reviewingId = ref<string | null>(null);
 const rejectReason = ref('');
 
+// 重发/删除
+const actionId = ref<string | null>(null);
+const actionMsg = ref('');
+
 const isDev = computed(() => currentUser.value?.role === 'DEV');
 const isAdmin = computed(() => currentUser.value?.role === 'ADMIN');
+
+// 判断当前用户是否可以操作该记录
+function canOperate(r: Registration): boolean {
+  if (isDev.value) return true;
+  // 管理员只能操作自己提交的记录
+  return r.createdBy?.email === currentUser.value?.email;
+}
 
 const statusLabel: Record<string, string> = {
   PENDING: '待审批',
@@ -97,6 +108,35 @@ async function review(id: string, action: 'approve' | 'reject') {
   }
 }
 
+async function resend(id: string) {
+  actionId.value = id;
+  actionMsg.value = '';
+  try {
+    const data = await request<{ delivered: boolean; message: string }>(`/api/admin/registrations/${id}/resend`, {
+      method: 'POST',
+    });
+    actionMsg.value = data.message;
+    setTimeout(() => { actionMsg.value = ''; }, 3000);
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : '重发失败';
+  } finally {
+    actionId.value = null;
+  }
+}
+
+async function remove(id: string, name: string) {
+  if (!confirm(`确定要删除预注册记录「${name}」吗？此操作不可恢复。`)) return;
+  actionId.value = id;
+  try {
+    await request(`/api/admin/registrations/${id}`, { method: 'DELETE' });
+    await load();
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : '删除失败';
+  } finally {
+    actionId.value = null;
+  }
+}
+
 onMounted(load);
 </script>
 
@@ -135,7 +175,7 @@ onMounted(load);
             <th>部门</th>
             <th>来源</th>
             <th>状态</th>
-            <th v-if="isDev">操作</th>
+            <th>操作</th>
           </tr>
         </thead>
         <tbody>
@@ -148,17 +188,27 @@ onMounted(load);
               <span class="tag" :class="statusClass[r.status]">{{ statusLabel[r.status] }}</span>
               <span v-if="r.status === 'REJECTED' && r.rejectReason" class="reason">：{{ r.rejectReason }}</span>
             </td>
-            <td v-if="isDev">
-              <template v-if="r.status === 'PENDING'">
-                <button class="btn btn-primary sm" :disabled="reviewingId === r.id" @click="review(r.id, 'approve')">通过</button>
-                <button class="btn btn-danger sm" :disabled="reviewingId === r.id" @click="review(r.id, 'reject')">拒绝</button>
-                <input v-if="r.status === 'PENDING'" v-model="rejectReason" class="inline-input" placeholder="拒绝原因（可选）" />
+            <td>
+              <template v-if="canOperate(r)">
+                <!-- 开发者：待审批记录显示通过/拒绝 -->
+                <template v-if="isDev && r.status === 'PENDING'">
+                  <button class="btn btn-primary sm" :disabled="reviewingId === r.id" @click="review(r.id, 'approve')">通过</button>
+                  <button class="btn btn-danger sm" :disabled="reviewingId === r.id" @click="review(r.id, 'reject')">拒绝</button>
+                  <input v-if="r.status === 'PENDING'" v-model="rejectReason" class="inline-input" placeholder="拒绝原因（可选）" />
+                </template>
+                <!-- 已通过且未激活：显示重发按钮 -->
+                <button v-if="r.status === 'APPROVED'" class="btn btn-primary sm" :disabled="actionId === r.id" @click="resend(r.id)">
+                  {{ actionId === r.id ? '发送中…' : '重发激活' }}
+                </button>
+                <!-- 删除按钮 -->
+                <button class="btn btn-danger sm" :disabled="actionId === r.id" @click="remove(r.id, r.name)">删除</button>
               </template>
-              <span v-else class="muted">已处理</span>
+              <span v-else class="muted">—</span>
             </td>
           </tr>
         </tbody>
       </table>
+      <p v-if="actionMsg" class="ok">{{ actionMsg }}</p>
     </section>
   </main>
 </template>
